@@ -6,6 +6,7 @@ from sqlmodel import Session
 from sqlmodel import select
 
 from app.core.database import to_utc, utcnow
+from app.mission.task_checks import log_task_warnings
 from app.models.mission import MissionTask
 from app.schemas.mission import MissionTaskCreate, MissionTaskUpdate
 from app.services.validation import ValidationFailure
@@ -29,6 +30,17 @@ def create_task(session: Session, crew_id: str, payload: MissionTaskCreate) -> M
     )
     session.add(task)
     session.commit()
+    log_task_warnings(
+        session,
+        crew_id,
+        task.start_time,
+        task.end_time,
+        task_type=task.task_type,
+        workload_level=task.workload_level,
+        is_critical=task.is_critical,
+        title=task.title,
+        exclude_task_id=task.id,
+    )
     return task
 
 
@@ -74,6 +86,17 @@ def update_task(
     task.end_time = end
     session.add(task)
     session.commit()
+    log_task_warnings(
+        session,
+        task.crew_id,
+        task.start_time,
+        task.end_time,
+        task_type=task.task_type,
+        workload_level=task.workload_level,
+        is_critical=task.is_critical,
+        title=task.title,
+        exclude_task_id=task.id,
+    )
     return task
 
 
