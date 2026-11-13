@@ -1,0 +1,424 @@
+{
+  "info": {
+    "_postman_id": "6f1f2c1a-6d3a-4f3e-9a2b-4c5d6e7f8a90",
+    "name": "ChronoGuard — Mission Intelligence (Person 4)",
+    "description": "Phase 7 collection for /api/v1/crew/{crew_id}/mission-intel. Run the requests in order. The collection prerequest script computes a UTC day window for every request, and the setup folder seeds crew-demo-01 and creates a night task inside the configured Window of Circadian Low so a recommendation always exists. Follow-ups are stored in process memory and are cleared on restart.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://127.0.0.1:8000/api/v1" },
+    { "key": "crewId", "value": "crew-demo-01" },
+    { "key": "windowStart", "value": "" },
+    { "key": "windowEnd", "value": "" },
+    { "key": "scheduleDate", "value": "" },
+    { "key": "nightStart", "value": "" },
+    { "key": "nightEnd", "value": "" },
+    { "key": "nightTaskId", "value": "" },
+    { "key": "taskId", "value": "" },
+    { "key": "safeStart", "value": "" },
+    { "key": "recommendationId", "value": "" },
+    { "key": "followUpId", "value": "" }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "const now = new Date();",
+          "const start = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));",
+          "const end = new Date(start.getTime() + 24 * 60 * 60 * 1000);",
+          "pm.collectionVariables.set('windowStart', start.toISOString());",
+          "pm.collectionVariables.set('windowEnd', end.toISOString());",
+          "pm.collectionVariables.set('scheduleDate', start.toISOString().slice(0, 10));"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "0. Setup",
+      "item": [
+        {
+          "name": "Seed demo crew (normal_routine)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": "{{baseUrl}}/demo/seed?scenario=normal_routine&reset=true"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('seed responds successfully', () => pm.expect([200, 201]).to.include(pm.response.code));",
+                  "const body = pm.response.json();",
+                  "pm.test('seeded crew id matches', () => pm.expect(body.crew_id).to.eql(pm.collectionVariables.get('crewId')));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Create night task in the WOCL",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Postman night task\",\n  \"task_type\": \"maintenance\",\n  \"start_time\": \"{{nightStart}}\",\n  \"end_time\": \"{{nightEnd}}\",\n  \"workload_level\": \"high\",\n  \"is_critical\": false\n}"
+            },
+            "url": "{{baseUrl}}/crew/{{crewId}}/missions"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const start = new Date(pm.collectionVariables.get('windowStart'));",
+                  "const nightStart = new Date(start.getTime() + 3 * 60 * 60 * 1000);",
+                  "const nightEnd = new Date(nightStart.getTime() + 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('nightStart', nightStart.toISOString());",
+                  "pm.collectionVariables.set('nightEnd', nightEnd.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('task created', () => pm.expect(pm.response.code).to.eql(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('nightTaskId', body.id);",
+                  "pm.collectionVariables.set('taskId', body.id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "1. Read",
+      "item": [
+        {
+          "name": "GET schedule (daily)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/schedule?view=daily&date={{scheduleDate}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('schedule succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('daily window is returned', () => pm.expect(body.view).to.eql('daily'));",
+                  "pm.test('data_warnings is present', () => pm.expect(body.data_warnings).to.be.an('array'));",
+                  "if (body.tasks && body.tasks.length > 0) {",
+                  "  pm.collectionVariables.set('taskId', body.tasks[0].task_id);",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET overview",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/overview?window_start={{windowStart}}&window_end={{windowEnd}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('overview succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('health block present', () => pm.expect(body.health).to.be.an('object'));",
+                  "pm.test('fatigue is categorical', () => pm.expect(body.health.fatigue_signal.level).to.be.a('string'));",
+                  "pm.test('data_warnings is present', () => pm.expect(body.data_warnings).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET conflicts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/conflicts?window_start={{windowStart}}&window_end={{windowEnd}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('conflicts succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('conflicts is an array', () => pm.expect(body.conflicts).to.be.an('array'));",
+                  "pm.test('rule set version present', () => pm.expect(body.rule_set_version).to.be.a('string'));",
+                  "pm.test('data_warnings is present', () => pm.expect(body.data_warnings).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "GET recommendations",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/recommendations?window_start={{windowStart}}&window_end={{windowEnd}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('recommendations succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('recommendations is an array', () => pm.expect(body.recommendations).to.be.an('array'));",
+                  "pm.test('data_warnings is present', () => pm.expect(body.data_warnings).to.be.an('array'));",
+                  "if (body.recommendations.length > 0) {",
+                  "  pm.collectionVariables.set('recommendationId', body.recommendations[0].recommendation_id);",
+                  "  pm.test('recommendation id captured', () => pm.expect(pm.collectionVariables.get('recommendationId')).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. What-if",
+      "item": [
+        {
+          "name": "POST what-if (move task)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"window_start\": \"{{windowStart}}\",\n  \"window_end\": \"{{windowEnd}}\",\n  \"operations\": [\n    {\n      \"type\": \"move_task\",\n      \"task_id\": \"{{taskId}}\",\n      \"new_start\": \"{{safeStart}}\"\n    }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/what-if"
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const start = new Date(pm.collectionVariables.get('windowStart'));",
+                  "const safe = new Date(start.getTime() + 12 * 60 * 60 * 1000);",
+                  "pm.collectionVariables.set('safeStart', safe.toISOString());"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('what-if succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('comparison present', () => pm.expect(body.comparison).to.be.an('object'));",
+                  "pm.test('fatigue was not re-predicted', () => pm.expect(body.comparison.note).to.eql('Fatigue was not re-predicted; this comparison reflects schedule rules only.'));",
+                  "pm.test('data_warnings is present', () => pm.expect(body.data_warnings).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Follow-ups",
+      "item": [
+        {
+          "name": "POST follow-up (create)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"recommendation_id\": \"{{recommendationId}}\",\n  \"window_start\": \"{{windowStart}}\",\n  \"window_end\": \"{{windowEnd}}\"\n}"
+            },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/follow-ups"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('follow-up created', () => pm.expect(pm.response.code).to.eql(201));",
+                  "const body = pm.response.json();",
+                  "pm.collectionVariables.set('followUpId', body.follow_up.follow_up_id);",
+                  "pm.test('starts as suggested', () => pm.expect(body.follow_up.status).to.eql('suggested'));",
+                  "pm.test('process-local warning present', () => {",
+                  "  const codes = body.data_warnings.map(w => w.code);",
+                  "  pm.expect(codes).to.include('follow_up_store_is_process_local');",
+                  "});"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH follow-up (accept)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"accept\"\n}" },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/follow-ups/{{followUpId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('accept succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test('status is accepted', () => pm.expect(pm.response.json().follow_up.status).to.eql('accepted'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH follow-up (complete, approved)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"action\": \"complete\",\n  \"approved\": true,\n  \"result\": \"Mission control reviewed the advisory in Postman.\"\n}"
+            },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/follow-ups/{{followUpId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('approved completion succeeds', () => pm.expect(pm.response.code).to.eql(200));",
+                  "pm.test('status is completed', () => pm.expect(pm.response.json().follow_up.status).to.eql('completed'));",
+                  "pm.test('approval recorded', () => pm.expect(pm.response.json().follow_up.approved).to.eql(true));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH follow-up (repeat complete -> 409)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"complete\",\n  \"approved\": true\n}" },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/follow-ups/{{followUpId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('terminal state returns 409', () => pm.expect(pm.response.code).to.eql(409));",
+                  "pm.test('error code is invalid_status_transition', () => pm.expect(pm.response.json().error.code).to.eql('invalid_status_transition'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Error examples",
+      "item": [
+        {
+          "name": "GET schedule (unknown crew -> 404)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/crew/crew-missing/mission-intel/schedule?view=daily&date={{scheduleDate}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('unknown crew returns 404', () => pm.expect(pm.response.code).to.eql(404));",
+                  "const body = pm.response.json();",
+                  "pm.test('error code is crew_not_found', () => pm.expect(body.error.code).to.eql('crew_not_found'));",
+                  "pm.test('error envelope keeps data_warnings', () => pm.expect(body.data_warnings).to.be.an('array'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "POST what-if (bad operation type -> 422)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"window_start\": \"{{windowStart}}\",\n  \"window_end\": \"{{windowEnd}}\",\n  \"operations\": [\n    { \"type\": \"teleport_task\", \"task_id\": \"{{taskId}}\" }\n  ]\n}"
+            },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/what-if"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('bad operation returns 422', () => pm.expect(pm.response.code).to.eql(422));",
+                  "pm.test('error code is validation_error', () => pm.expect(pm.response.json().error.code).to.eql('validation_error'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "PATCH follow-up (unknown id -> 404)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\n  \"action\": \"accept\"\n}" },
+            "url": "{{baseUrl}}/crew/{{crewId}}/mission-intel/follow-ups/fu_missing"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('unknown follow-up returns 404', () => pm.expect(pm.response.code).to.eql(404));",
+                  "pm.test('error code is follow_up_not_found', () => pm.expect(pm.response.json().error.code).to.eql('follow_up_not_found'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
