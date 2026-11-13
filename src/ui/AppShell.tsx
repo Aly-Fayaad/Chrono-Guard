@@ -109,15 +109,15 @@ export function AppShell({ children }: { children: ReactNode }) {
     <div className="flex min-h-screen">
       <Rail />
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="relative flex h-14 items-center justify-between gap-3 border-b border-hairline bg-panel px-4 sm:px-6">
-          <div className="flex items-center gap-3 md:hidden">
+        <header className="relative flex min-h-14 flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-hairline bg-panel px-3 py-1.5 sm:px-6">
+          <div className="flex items-center gap-2.5 md:hidden">
             <span
               className="flex h-8 w-8 items-center justify-center rounded-md border border-earth/40 bg-raised font-mono text-[11px] text-earth"
               aria-hidden
             >
               CG
             </span>
-            <span className="font-mono text-[12px] tracking-[0.18em] text-moonlight">
+            <span className="hidden font-mono text-[12px] tracking-[0.18em] text-moonlight sm:inline">
               CHRONOGUARD
             </span>
           </div>
@@ -128,7 +128,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </div>
           <HorizonArc />
         </header>
-        <main className="mx-auto w-full max-w-[1200px] flex-1 px-4 pb-28 pt-5 sm:px-6 md:pb-10">
+        <main className="mx-auto w-full max-w-[1200px] flex-1 px-3 pb-28 pt-4 sm:px-6 sm:pt-5 md:pb-10">
           {children}
         </main>
       </div>

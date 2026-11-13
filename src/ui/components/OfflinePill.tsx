@@ -7,7 +7,7 @@ import { Wifi, WifiOff } from "lucide-react";
 export function OfflinePill({ online, queued }: { online: boolean; queued: number }) {
   return (
     <span
-      className={`motion-fade inline-flex h-11 items-center gap-2 rounded-full border px-3 text-[12px] ${
+      className={`motion-fade inline-flex h-9 items-center gap-1.5 rounded-full border px-2.5 text-[11px] sm:h-11 sm:gap-2 sm:px-3 sm:text-[12px] ${
         online
           ? "border-nominal/30 text-nominal"
           : "border-watch/40 text-watch"

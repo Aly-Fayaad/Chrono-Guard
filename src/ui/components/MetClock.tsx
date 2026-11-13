@@ -5,7 +5,7 @@ export function MetClock() {
   const met = useMetClock();
   return (
     <time
-      className="tnum text-[13px] text-regolith"
+      className="tnum text-[11px] text-regolith sm:text-[13px]"
       dateTime={met.replace("D+", "P").replace(/D\+\d+ /, "")}
       aria-label={`Mission elapsed time ${met}`}
     >

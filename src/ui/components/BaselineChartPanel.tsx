@@ -15,7 +15,7 @@ import type { DetectionResult, HealthMeasurement, MetricType } from "../../share
 import { buildBaseline } from "../../anomaly/baseline";
 import { DEFAULT_CONFIG } from "../../anomaly/detector";
 import { METRICS } from "../config";
-import { metStamp } from "../lib/time";
+import { metDay, metStamp } from "../lib/time";
 import { fmtSigma } from "../lib/format";
 import { Panel } from "./Panel";
 import { SegmentedControl } from "./SegmentedControl";
@@ -82,12 +82,12 @@ export function BaselineChartPanel({
     const sorted = [...series].sort((a, b) => a.recordedAt.localeCompare(b.recordedAt));
     const bl = buildBaseline(sorted.slice(0, -DEFAULT_CONFIG.trendWindow));
     const sliced = sorted.slice(-Number(range));
-    const pts: ChartPoint[] = sliced.map((m, i) => {
+    const pts: ChartPoint[] = sliced.map((m) => {
       const deviation = bl ? (m.value - bl.median) / bl.scale : 0;
       const valid = m.quality === "valid";
       const anomaly = valid && bl && Math.abs(deviation) >= zt;
       return {
-        day: metStamp(m.recordedAt).replace(" ", " ").split(" ")[1] ?? `P${i + 1}`,
+        day: metDay(m.recordedAt),
         ts: m.recordedAt,
         value: valid ? m.value : null,
         anomaly: anomaly ? m.value : null,

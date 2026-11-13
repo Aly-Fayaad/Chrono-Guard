@@ -1,49 +1,84 @@
-# Chrono-Guard — Lunar Crew Health Companion
+# ChronoGuard — Lunar Crew Health Console
 
-Frontend for the Chrono-Guard crew-health system: a space-themed dashboard for
-tracking lunar-crew vitals, daily check-ins, mission scheduling, anomaly
-detection against a personal baseline, fatigue assessment, and guidance
-follow-ups.
+Offline-capable crew-health console for lunar missions: personal-baseline
+anomaly monitoring, fatigue assessment, daily check-ins, mission scheduling
+and guidance follow-ups. Designed as a calm, precise mission-operations
+console — data-first, never gimmicky.
 
 ## Stack
 
-- **React + TypeScript** — pages, forms, dashboard, interactive components
+- **React + TypeScript (strict)** — pages, forms, dashboard, interactive components
 - **Vite** — dev server and build tooling
-- **Tailwind CSS v4** — responsive space theme styling
-- **Dexie (IndexedDB)** — local-first storage so the app works offline
+- **Tailwind CSS v4** — all design tokens live in the `@theme` block of `src/index.css`
 - **Recharts** — personal-baseline charts
-- **lucide-react** — navigation icons
+- **React Router** — Today / Check-in / Schedule / Guidance
+- **lucide-react** — status and navigation icons
+- **@fontsource IBM Plex Sans/Mono** — self-hosted fonts, fully offline
+- **Dexie (IndexedDB)** — local-first storage behind the sync queue
+
+No CDN fonts, remote images or external scripts: the app renders fully with
+the network off.
 
 ## Getting started
 
 ```bash
 npm install
 npm run dev      # http://localhost:5173
-npm run build    # type-check + production build
+npm run build    # strict type-check + production build
 npm run lint
 ```
 
-> Demo data lives in your browser (IndexedDB). Use the scenario buttons on the
-> dashboard ("Nominal week", "Sudden spike", "Sustained drift", "Bad sensor
-> data") to seed 17 days of readings.
+## Demo scenarios
+
+Static fixtures with the identical pipeline shape are available behind a URL
+parameter (no data layer needed):
+
+```
+http://localhost:5173/?mock=normal
+http://localhost:5173/?mock=sudden
+http://localhost:5173/?mock=sustained
+http://localhost:5173/?mock=data-quality
+```
+
+Without the parameter the app consumes the real pipeline (`src/pipeline.ts`)
+via the `useHealth` hook. Real mode with an empty database offers a
+"Load demo data" button that seeds IndexedDB.
+
+## Status language
+
+The UI never uses color alone: every status pairs an icon, a text label and a
+color. Fixed, careful phrasing: "Within personal range", "Unusual for
+baseline", "Not enough history", "Data-quality warning", "Potential concern,
+review suggested". Data-quality states are slate with a diagonal hatch so a
+sensor problem never reads as a health alarm. Every assessment carries the
+footnote: "Potential concern for human review. Not a diagnosis."
 
 ## Project structure
 
 ```
 src/
-  shared/types.ts        # domain types (measurements, detections, guidance…)
-  data/                  # Dexie DB, validation, demo seed data
-  anomaly/               # personal baseline (median/MAD) + anomaly detector
+  shared/types.ts        # domain types (owned by data/pipeline team)
+  data/                  # Dexie DB, validation, demo seed
+  anomaly/               # personal baseline (median/MAD) + detector
   pipeline.ts            # daily picture: series, detections, fatigue, guidance
-  offline/syncQueue.ts   # local-first sync queue (drains when online)
-  guidance/followup.ts   # guidance accept/skip/complete actions
-  ui/                    # themed pages + reusable components (Panel, Chip…)
-  App.tsx                # shell, navigation, tab routing
+  offline/syncQueue.ts   # local-first sync queue
+  guidance/followup.ts   # guidance accept/skip/complete
+  ui/
+    AppShell.tsx         # rail (md+), top bar (MET clock, connectivity), mobile tab bar
+    config.ts            # crew id, mission epoch, metric metadata
+    lib/                 # time (MET formatting), number formatting
+    hooks/               # useHealthData (integration seam), useMetClock, useNow
+    mock/                # scenario fixtures + mock data source
+    components/          # Panel, StatusBadge, MetricTile, ArcGauge, charts…
+    pages/               # Today, CheckIn, Schedule, Guidance
 ```
 
-## Module ownership
+`src/ui` owns all presentation. It consumes shared types and the pipeline
+outputs only — no detection or assessment logic lives in the UI.
 
-- `src/ui/*`, `src/App.tsx`, `src/index.css` — Person 1 (frontend & visualization)
-- `src/data/*`, `src/anomaly/*`, `src/pipeline.ts`, `src/offline/*`,
-  `src/guidance/*` — logic modules implementing the agreed signatures; backend
-  teammates can replace their internals without touching the UI.
+## Layout
+
+- **≥1024px** — expanded 220px left rail
+- **768–1023px** — 72px icon rail
+- **<768px** — bottom tab bar (44px+ touch targets, safe-area padding)
+- Max content width 1200px; panels reflow 4 → 2 → 1 columns.
