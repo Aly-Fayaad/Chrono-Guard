@@ -36,8 +36,7 @@ export function SchedulePage({ health }: { health: HealthData }) {
     const d = new Date(now);
     d.setHours(0, 0, 0, 0);
     return d;
-    // re-anchor the 48h window to local midnight, refreshed hourly
-  }, [Math.floor(now.getTime() / 3_600_000)]);
+  }, [now]);
 
   const tasks = data?.tasks ?? [];
   const pct = (iso: string) =>
