@@ -225,3 +225,82 @@ pytest
 - `CORS_ORIGINS` is a comma-separated string for easy `.env` use.
 - `tests/conftest.py` uses an isolated in-memory SQLite database and overrides the
   database dependency; tests never touch the development database.
+
+## 6. Known gaps and team handoff
+
+This backend deliberately stops at the stable contracts. The items below are
+missing, stubbed, or intentionally out of scope. Each row names the API or
+integration that depends on it and the owner who should add it.
+
+### 6.1 Blocking the full demo
+
+| Missing piece | Current state | Dependent API / integration | Owner |
+| --- | --- | --- | --- |
+| AI analysis engine | `app/ml/` is empty; `NullEngine` always returns `None` | `POST /crew/{id}/checkins` returns `assessment: null`; `GET /crew/{id}/checkins/{id}` returns `assessment: null`; `GET /crew/{id}/assessments` stays empty; `GET /crew/{id}/assessments/latest` returns `404` | P3 |
+| Assessment seed data | `app/seed/demo_data.py` creates no `Assessment` rows | Frontend assessment screens have nothing to display until P3 seeds or generates assessments | P3 |
+| Retroactive / batch analysis | The engine runs only for new check-ins | Existing seeded check-ins are never analysed; there is no replay endpoint | P3 |
+| Assessment deep-link route | Only list and latest exist | No `GET /crew/{id}/assessments/{assessment_id}` for a detail screen or deep link | P3 / backend |
+| Guidance API | `Countermeasure` and `ActionHistory` tables exist, but there is no router, schema, or service | Frontend guidance panel has no endpoint; P4 must add and register a router | P4 |
+| Countermeasure catalogue seed | No `Countermeasure` rows are seeded | `ActionHistory.countermeasure_id` cannot be populated; P4 must seed the catalogue | P4 |
+| Action history API | `ActionHistory` is a table only | Accept / skip / complete actions and follow-up results are not exposed | P4 |
+| Mission conflict / overlap logic | `mission_service` only checks `end_time > start_time` | `POST/PATCH /missions` returns no conflict warnings; P4 owns conflict detection | P4 |
+| Mission approval workflow | `requires_mission_approval` is only a column | No approve/reject endpoint or status transition for P4 guidance | P4 |
+| Crew onboarding | There is no `POST /crew`; only the seed creates crews | Frontend cannot create a crew; check-in and mission POSTs require an existing `crew_id` | Backend / P1 decision |
+| Device import ingestion | `device_import` exists only in the source enum | No endpoint writes `source="device_import"`; `POST /checkins` always writes `manual` | Backend / P3 |
+
+### 6.2 Frontend integration notes
+
+| Behaviour | Why it matters | Owner |
+| --- | --- | --- |
+| `422` bodies have two shapes | Pydantic validation returns `detail: [...]`; domain validation returns `detail: "message"`. The frontend should handle both. | P1 / backend |
+| `GET .../assessments/latest` returns `404` when empty | Treat `404` as "no assessment yet", not as a network failure. | P1 |
+| `GET .../checkins` returns headers only | Measurements and sleep are in the detail route or history routes; the list is not a full record. | P1 |
+| History responses are envelopes | Measurements arrive as `{"measurements": [...]}` and sleep as `{"sleep_records": [...]}`. | P1 |
+| History `type` filter is single-valued | Multiple measurement types require multiple calls; the service helper accepts a list for P3/P4. | P1 |
+| No trend aggregation endpoint | The frontend must compute trends from raw history, or P3 adds an analytics endpoint. | P1 / P3 |
+| No pagination totals | List routes return arrays without `total` or page counts. | P1 / backend |
+| All timestamps are UTC | The UI must convert to the crew's local display time. | P1 |
+| Units are fixed by the server | Display the returned `unit`; the client cannot submit units. | P1 |
+| Mission list filters are limited | Only `upcoming`, `from`, and `to` are supported; no `task_type`, `workload_level`, or `is_critical` filters yet. | P4 / P1 |
+| Upcoming semantics differ | The HTTP route returns all future tasks; `history_service.get_upcoming_tasks()` defaults to a 72-hour horizon. P3/P4 must agree which one they use. | P3 / P4 |
+| No API client is generated | `/openapi.json` is available; the frontend can generate types or mirror the schemas manually. | P1 |
+
+### 6.3 Data and contract gaps
+
+| Gap | Current behaviour | Impact |
+| --- | --- | --- |
+| `quality="missing"` is never written | Omitted fields produce no row; there is no synthetic "missing" row | P3/P4 must treat absent rows as missing data, not expect `quality="missing"` |
+| `contributing_factors` is unvalidated JSON | It is stored as `list[dict]` | P3 must keep the agreed `{indicator, observed, reference, note}` shape; bad values fail on JSON serialisation |
+| `ActionHistory.updated_at` is not auto-updated | It only has a default | P4 must set it on every status change |
+| No cascade deletes | Foreign keys have no `ondelete` behaviour; the seed deletes dependent rows manually | A future `DELETE /crew` must clean up all child tables |
+| SQLite FK enforcement is off | FKs are declared, but SQLite does not enforce them unless the pragma is enabled | Orphan rows are possible outside the seed's manual cleanup |
+| No migrations | Tables are created with `SQLModel.metadata.create_all()` | Any schema change by P3/P4 requires a DB reset or adding Alembic |
+| No auth / rate limiting | All routes are open | Do not expose the service publicly without a gateway or auth |
+| No sync / offline / idempotency | Out of scope by design | Duplicate check-in POSTs create duplicate records |
+| No DB check in `/health` | It returns a static status | Ops cannot detect a broken database from the health route |
+| No request IDs or logging config | Default Uvicorn logging only | Harder to trace errors across P1/P3/P4 |
+| No CI / Dockerfile | Local commands only | Deployment is manual |
+
+### 6.4 Test coverage gaps
+
+Current tests cover the check-in transaction, hard/soft validation, history
+filters, mission CRUD, `404` handling, and the analysis hook. Not yet covered:
+
+- Crew list/detail/PATCH routes and their `404` cases.
+- Assessment list/latest empty-state behaviour.
+- Demo seed endpoint idempotency, `--reset`, and `ENV=dev` gating.
+- `load_engine()` dotted-path loading and startup failure on a bad path.
+- Sleep duration hard/soft bounds and interruption bounds as automated tests.
+- Check-in and history pagination limits.
+- CORS headers.
+- P4 `Countermeasure` / `ActionHistory` persistence.
+
+### 6.5 Before deployment
+
+- Set `ENV=prod` so `/api/v1/demo/seed` returns `403`.
+- Set `CORS_ORIGINS` to the deployed frontend origin.
+- Add Alembic (or a documented reset procedure) before changing tables.
+- Enable SQLite `PRAGMA foreign_keys=ON` or add explicit cascade cleanup.
+- Add authentication/authorisation if the API is not kept behind a private gateway.
+- Install the appropriate driver if `DATABASE_URL` is changed from SQLite.
+- Add CI to run `pytest` and a lint/type check.
