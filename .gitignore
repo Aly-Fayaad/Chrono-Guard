@@ -1,0 +1,65 @@
+# ==========================================
+# SHARED (OS, IDEs, Logs, Environment)
+# ==========================================
+# Environment variables (Never commit secrets)
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Operating System files
+.DS_Store
+Thumbs.db
+
+# Editors & IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# ==========================================
+# FRONTEND (Node, React, Next.js, Vite, etc.)
+# ==========================================
+node_modules/
+dist/
+build/
+.next/
+out/
+.nuxt/
+.cache/
+.parcel-cache/
+coverage/
+.eslintcache
+
+# ==========================================
+# BACKEND (Node, Python, Java, etc.)
+# ==========================================
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.pytest_cache/
+
+# Java / Spring Boot
+target/
+*.jar
+*.war
+.gradle/
+
+# Local Databases / Uploads
+*.sqlite
+*.sqlite3
+*.db
+uploads/
+tmp/
