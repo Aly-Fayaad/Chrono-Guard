@@ -1,0 +1,231 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces — deep-space navy */
+  --color-void: #05070d;
+  --color-deep: #0b1220;
+  --color-panel: #101826;
+  --color-raised: #18202e;
+  --color-hairline: rgba(200, 215, 230, 0.12);
+
+  /* Text — cool starlight */
+  --color-moonlight: #e8edf2;
+  --color-regolith: #8a96a3;
+  --color-ink: #6b7684;
+
+  /* Status (continuity with the original console) */
+  --color-nominal: #3dd6b0;
+  --color-watch: #f2b84b;
+  --color-review: #f26b3a;
+  --color-earth: #4c9aff;
+
+  /* Celestial accents */
+  --color-silver: #c9d2dc;
+  --color-sun: #ffc25c;
+  --color-aurora: #7de8c8;
+  --color-nebula: #9b8cff;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+  --font-display: "Space Grotesk", "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  --radius-panel: 10px;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--color-void);
+  color: var(--color-moonlight);
+  font-family: var(--font-sans);
+  /* Fallback nebula gradient behind everything (canvas starfield layers on top) */
+  background-image:
+    radial-gradient(1100px 520px at 78% -8%, rgba(76, 154, 255, 0.07), transparent 60%),
+    radial-gradient(900px 600px at 12% 112%, rgba(155, 140, 255, 0.06), transparent 60%),
+    linear-gradient(180deg, #05070d 0%, #0b1220 55%, #05070d 100%);
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(76, 154, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(138, 150, 163, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 150, 163, 0.5);
+}
+
+/* Visible focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--color-earth);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* ---- Type helpers ---- */
+
+/* Small uppercase panel-header label */
+.label-eyebrow {
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-regolith);
+}
+
+/* Tabular figures for all telemetry text */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Humane display face for titles */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+}
+
+/* Diagonal hatch for data-quality / insufficient-data states */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(107, 120, 132, 0.22) 0px,
+    rgba(107, 120, 132, 0.22) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+}
+
+/* ---- Surfaces ---- */
+
+/* Translucent glass panel over the starfield */
+.glass {
+  background: rgba(13, 20, 32, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border: 1px solid rgba(200, 215, 230, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(232, 237, 242, 0.04),
+    0 8px 24px rgba(5, 7, 13, 0.45);
+}
+/* Lighter glass for chips/rows */
+.glass-soft {
+  background: rgba(13, 20, 32, 0.5);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(200, 215, 230, 0.1);
+}
+
+/* Scrim for text over imagery */
+.scrim {
+  background: linear-gradient(
+    180deg,
+    rgba(5, 7, 13, 0.25) 0%,
+    rgba(5, 7, 13, 0.05) 30%,
+    rgba(5, 7, 13, 0.72) 82%,
+    rgba(5, 7, 13, 0.92) 100%
+  );
+}
+
+/* ---- Motion ---- */
+
+.motion-fade {
+  transition: opacity 180ms ease-out, background-color 180ms ease-out,
+    border-color 180ms ease-out, color 180ms ease-out, transform 180ms ease-out;
+}
+
+/* Ambient hub motion */
+@keyframes hub-drift {
+  from { transform: translate3d(0, 0, 0); }
+  to { transform: translate3d(-1.2%, -0.6%, 0); }
+}
+.hub-drift {
+  animation: hub-drift 90s ease-in-out infinite alternate;
+  will-change: transform;
+}
+
+@keyframes hub-glow {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 0.95; }
+}
+.hub-glow {
+  animation: hub-glow 6s ease-in-out infinite;
+}
+
+@keyframes orbit-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes fly-circle {
+  from { transform: scale(0.01); opacity: 0.95; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@keyframes hub-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.hub-fade-in {
+  animation: hub-fade-in 500ms ease-out both;
+}
+
+@keyframes breathe-scale {
+  0% { transform: scale(0.62); }
+  40% { transform: scale(1); }
+  100% { transform: scale(0.62); }
+}
+
+/* Slow, calm body float for hub bodies (paused when reduce-effects is on) */
+@keyframes body-float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+.body-float {
+  animation: body-float 9s ease-in-out infinite;
+}
+
+/* Pause all ambient animation when the tab is hidden */
+body[data-hidden="true"] *,
+body[data-hidden="true"] *::before,
+body[data-hidden="true"] *::after {
+  animation-play-state: paused !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Reduce-effects mode (user toggle): stop ambient animation entirely */
+.reduce-effects {
+  .hub-drift, .hub-glow, .body-float {
+    animation: none !important;
+  }
+  .glass, .glass-soft {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: rgba(13, 20, 32, 0.92);
+  }
+}
