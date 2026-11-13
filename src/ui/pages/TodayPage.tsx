@@ -11,7 +11,8 @@ import { FatiguePanel } from "../components/FatiguePanel";
 import { MetricTile } from "../components/MetricTile";
 import { AnomalyHistory } from "../components/AnomalyHistory";
 import { TaskStrip } from "../components/TaskStrip";
-import { Panel } from "../components/Panel";
+import { BaselineChartPanel } from "../components/BaselineChartPanel";
+import { TrendView } from "../components/TrendView";
 import { SectionHeader } from "../components/SectionHeader";
 import { EmptyState } from "../components/EmptyState";
 import { PanelSkeleton, Skeleton } from "../components/Skeleton";
@@ -108,11 +109,9 @@ export function TodayPage({ health }: { health: HealthData }) {
             })}
           </div>
 
-          <Panel label={`Baseline — ${METRICS[metric].label}`} actions={<span className="tnum text-[11px] text-regolith">17-day window</span>}>
-            <p className="text-sm text-regolith">
-              Chart view lands in the next deliverable — metric “{METRICS[metric].label}” selected.
-            </p>
-          </Panel>
+          <BaselineChartPanel metric={metric} series={data.series[metric] ?? []} detection={data.detections.find((d) => d.metric === metric) ?? { metric, status: "insufficient_baseline", reason: "No data for this metric." }} />
+
+          <TrendView detections={data.detections} series={data.series} selected={metric} onSelect={setMetric} />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_320px]">
             <AnomalyHistory detections={data.detections} series={data.series} />
