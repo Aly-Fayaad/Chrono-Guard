@@ -11,6 +11,10 @@ from app.models.assessment import Assessment
 class AnalysisEngine(Protocol):
     """Contract implemented by Person 3's analysis engine."""
 
+    #: Stable identifier stored on assessments; used to make re-analysis
+    #: idempotent for a given engine version.
+    version: str
+
     def analyze(
         self, session: Session, crew_id: str, checkin_id: str | None
     ) -> Assessment | None:
@@ -20,6 +24,8 @@ class AnalysisEngine(Protocol):
 
 class NullEngine:
     """Default engine that performs no analysis."""
+
+    version = "null-engine"
 
     def analyze(
         self, session: Session, crew_id: str, checkin_id: str | None

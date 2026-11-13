@@ -1,5 +1,4 @@
 import { useHealth } from "../HealthContext";
-import { MISSION_START } from "../config";
 import { usePageTitle } from "../usePageTitle";
 import { PageShell } from "../shell/PageShell";
 import { SmartImage } from "../components/SmartImage";
@@ -7,10 +6,6 @@ import { usePrefs } from "../prefs";
 
 /** Approximate mission length used for the "days to return" line. */
 const MISSION_DAYS = 180;
-
-function daysBetween(a: Date, b: Date): number {
-  return Math.floor((b.getTime() - a.getTime()) / 86_400_000);
-}
 
 /**
  * Earth view — the "Overview Effect" moment.
@@ -21,8 +16,7 @@ export function EarthViewPage() {
   usePageTitle("Earth view");
   const health = useHealth();
   const { prefs } = usePrefs();
-  const now = new Date();
-  const sinceLaunch = Math.max(0, daysBetween(MISSION_START, now));
+  const sinceLaunch = health.mission?.mission_day_index ?? 0;
   const toReturn = Math.max(0, MISSION_DAYS - sinceLaunch);
 
   return (

@@ -1,4 +1,4 @@
-import { metStamp } from "../lib/time";
+import { metStamp, earthClockHour } from "../lib/time";
 
 const CX = 150;
 const CY = 120;
@@ -24,13 +24,14 @@ const LIGHT = [6.5, 21.5] as const; // 06:30 → 21:30 station bright-light wind
 
 /**
  * Circadian light guidance: recommended bright-light and dark/sleep
- * windows as sun/shadow arcs over a 24-hour station day (06:30–21:30
- * light, 21:30–06:30 dark). A marker shows "now"; a dashed marker shows
- * the last wake time when known. The text line is the accessible summary.
+ * windows as sun/shadow arcs over the published 24-hour Earth clock
+ * (06:30–21:30 light, 21:30–06:30 dark). A marker shows "now"; a dashed
+ * marker shows the last wake time when known. The text line is the
+ * accessible summary.
  */
 export function CircadianArcs({ now, wake }: { now: Date; wake: string | null }) {
-  const localH = now.getHours() + now.getMinutes() / 60;
-  const wakeH = wake ? new Date(wake).getHours() + new Date(wake).getMinutes() / 60 : null;
+  const localH = earthClockHour(now);
+  const wakeH = wake ? earthClockHour(wake) : null;
 
   return (
     <div className="flex flex-col items-center gap-2">

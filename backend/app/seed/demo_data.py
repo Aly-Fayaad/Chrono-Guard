@@ -122,6 +122,7 @@ def _normal(session: Session, crew_id: str, now: datetime, rng: random.Random) -
         duration = rng.uniform(7.2, 8.2)
         values = {
             MeasurementType.heart_rate: rng.uniform(58, 70),
+            MeasurementType.hrv: rng.uniform(55, 68),
             MeasurementType.systolic_bp: rng.uniform(112, 124),
             MeasurementType.diastolic_bp: rng.uniform(70, 80),
             MeasurementType.body_temperature: rng.uniform(36.3, 36.8),
@@ -141,6 +142,7 @@ def _reduced(session: Session, crew_id: str, now: datetime, rng: random.Random) 
         duration = 2.8 if days_ago == 3 else rng.uniform(4.0, 5.5)
         values = {
             MeasurementType.heart_rate: rng.uniform(72, 86),
+            MeasurementType.hrv: rng.uniform(40, 54),
             MeasurementType.systolic_bp: rng.uniform(118, 132),
             MeasurementType.diastolic_bp: rng.uniform(76, 86),
             MeasurementType.body_temperature: rng.uniform(36.4, 37.2),
@@ -174,7 +176,7 @@ def _incomplete(session: Session, crew_id: str, now: datetime, rng: random.Rando
         session,
         crew_id,
         day_four,
-        {MeasurementType.heart_rate: 125, MeasurementType.body_temperature: 38.3},
+        {MeasurementType.heart_rate: 125, MeasurementType.hrv: 46, MeasurementType.body_temperature: 38.3},
         _sleep_window(day_four, 5.0),
     )
     day_one = _at(now, 1, 7)

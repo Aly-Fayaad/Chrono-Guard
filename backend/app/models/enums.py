@@ -7,6 +7,7 @@ class MeasurementType(str, Enum):
     """Supported health measurement types."""
 
     heart_rate = "heart_rate"
+    hrv = "hrv"
     systolic_bp = "systolic_bp"
     diastolic_bp = "diastolic_bp"
     body_temperature = "body_temperature"

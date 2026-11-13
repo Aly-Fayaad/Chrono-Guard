@@ -1,7 +1,6 @@
 import { useCallback, useState } from "react";
 import { RotateCw } from "lucide-react";
 import type { MetricType } from "../../shared/types";
-import { seedDemo } from "../../data/seed";
 import { useHealth } from "../HealthContext";
 import { METRICS, METRIC_ORDER } from "../config";
 import { metStamp } from "../lib/time";
@@ -28,12 +27,19 @@ export function TodayPage() {
   const health = useHealth();
   const { data, refresh, error, isMock } = health;
   const [metric, setMetric] = useState<MetricType>("heart_rate");
+  const [demoError, setDemoError] = useState<string | null>(null);
   const now = useNow(30_000);
 
   const loadDemo = useCallback(async () => {
-    await seedDemo("normal");
-    await refresh();
-  }, [refresh]);
+    setDemoError(null);
+    try {
+      await health.seedDemo();
+    } catch (cause) {
+      setDemoError(
+        cause instanceof Error ? cause.message : "The demo dataset could not be loaded.",
+      );
+    }
+  }, [health]);
 
   const mood = data ? MOOD[data.assessment.status] : null;
 
@@ -45,7 +51,7 @@ export function TodayPage() {
             <p className="label-eyebrow">Earth · Home &amp; baseline</p>
             <h1 className="font-display mt-0.5 text-[22px] font-medium text-moonlight">Today</h1>
             <p className="tnum mt-0.5 text-[12px] text-regolith">
-              CREW DEMO-01 · {metStamp(now)}Z
+              CREW DEMO-01 · {metStamp(now)}
               {mood && (
                 <>
                   {" · "}
@@ -61,15 +67,25 @@ export function TodayPage() {
 
         {error && (
           <EmptyState
-            title="Couldn't load health data"
-            hint={error}
+            title={data ? "Couldn't refresh health data" : "Couldn't load health data"}
+            hint={demoError ?? error}
             action={
-              <button
-                onClick={() => void refresh()}
-                className="motion-fade mt-2 inline-flex min-h-[44px] items-center gap-2 rounded border border-earth/40 px-3 text-[12px] text-earth hover:bg-earth/10"
-              >
-                <RotateCw size={13} aria-hidden /> Retry
-              </button>
+              <div className="mt-2 flex flex-wrap justify-center gap-2">
+                <button
+                  onClick={() => void refresh()}
+                  className="motion-fade inline-flex min-h-[44px] items-center gap-2 rounded border border-earth/40 px-3 text-[12px] text-earth hover:bg-earth/10"
+                >
+                  <RotateCw size={13} aria-hidden /> Retry
+                </button>
+                {!isMock && (
+                  <button
+                    onClick={() => void loadDemo()}
+                    className="motion-fade inline-flex min-h-[44px] items-center rounded border border-hairline px-3 text-[12px] text-regolith hover:text-moonlight"
+                  >
+                    Load demo data
+                  </button>
+                )}
+              </div>
             }
           />
         )}
@@ -89,7 +105,10 @@ export function TodayPage() {
             {!isMock && (
               <EmptyState
                 title="No readings yet"
-                hint="Log a check-in, or load a demo dataset to explore the console."
+                hint={
+                  demoError ??
+                  "Log a check-in, or load a demo dataset so the backend can run its analysis."
+                }
                 action={
                   <button
                     onClick={() => void loadDemo()}
