@@ -1,0 +1,116 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surfaces */
+  --color-void: #0a0e14;
+  --color-panel: #121820;
+  --color-raised: #18202a;
+  --color-hairline: rgba(200, 215, 230, 0.12);
+
+  /* Text */
+  --color-moonlight: #e8edf2;
+  --color-regolith: #8a96a3;
+
+  /* Status */
+  --color-nominal: #3dd6b0;
+  --color-watch: #f2b84b;
+  --color-review: #f26b3a;
+  --color-earth: #4c9aff;
+  --color-ink: #6b7684;
+
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", monospace;
+
+  --radius-panel: 8px;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  min-height: 100vh;
+  background-color: var(--color-void);
+  color: var(--color-moonlight);
+  font-family: var(--font-sans);
+  /* Static, very subtle starfield */
+  background-image:
+    radial-gradient(1px 1px at 11% 18%, rgba(232, 237, 242, 0.07) 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 64%, rgba(232, 237, 242, 0.05) 50%, transparent 51%),
+    radial-gradient(1px 1px at 58% 31%, rgba(232, 237, 242, 0.06) 50%, transparent 51%),
+    radial-gradient(1px 1px at 77% 74%, rgba(232, 237, 242, 0.04) 50%, transparent 51%),
+    radial-gradient(1px 1px at 89% 12%, rgba(232, 237, 242, 0.05) 50%, transparent 51%),
+    radial-gradient(1px 1px at 22% 88%, rgba(232, 237, 242, 0.04) 50%, transparent 51%),
+    radial-gradient(1px 1px at 65% 52%, rgba(232, 237, 242, 0.05) 50%, transparent 51%),
+    radial-gradient(1px 1px at 44% 8%, rgba(232, 237, 242, 0.04) 50%, transparent 51%);
+  background-size: 640px 640px, 520px 520px, 700px 700px, 560px 560px, 480px 480px, 720px 720px, 600px 600px, 660px 660px;
+  background-attachment: fixed;
+}
+
+::selection {
+  background: rgba(76, 154, 255, 0.35);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(138, 150, 163, 0.3);
+  border-radius: 999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(138, 150, 163, 0.5);
+}
+
+/* Visible focus ring for keyboard users */
+:focus-visible {
+  outline: 2px solid var(--color-earth);
+  outline-offset: 2px;
+}
+
+/* Diagonal hatch for data-quality / insufficient-data states */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(107, 120, 132, 0.22) 0px,
+    rgba(107, 120, 132, 0.22) 1px,
+    transparent 1px,
+    transparent 6px
+  );
+}
+
+/* Small uppercase panel-header label */
+.label-eyebrow {
+  font-size: 11px;
+  line-height: 1.2;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-regolith);
+}
+
+/* Tabular figures for all telemetry text */
+.tnum {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+/* Motion: short fades/transitions only; fully disabled for reduced-motion users */
+.motion-fade {
+  transition: opacity 180ms ease-out, background-color 180ms ease-out,
+    border-color 180ms ease-out, color 180ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
