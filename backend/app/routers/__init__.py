@@ -1,7 +1,14 @@
 """Router registry: adding a router is one line here."""
 
-from app.mission.router import router as mission_intel_router
-from app.routers import assessments, checkins, crew, demo, history, missions
+from app.routers import (
+    assessments,
+    checkins,
+    crew,
+    demo,
+    history,
+    missions,
+    overview,
+)
 
 ROUTERS = [
     crew.router,
@@ -10,5 +17,5 @@ ROUTERS = [
     missions.router,
     assessments.router,
     demo.router,
-    mission_intel_router,
+    overview.router,
 ]

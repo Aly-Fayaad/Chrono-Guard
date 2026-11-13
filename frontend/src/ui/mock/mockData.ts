@@ -16,9 +16,11 @@ export type MockScenario = "normal" | "sudden" | "sustained" | "data-quality";
  * Values are hand-picked so each scenario demonstrates one behaviour;
  * deviations shown in tooltips are derived from the declared medians.
  */
-const DAY_MS = 86_400_000;
-/** 17 daily readings ending at D+014 07:00Z. */
-const FIRST = Date.UTC(2026, 9, 28, 7); // Oct 28, D+011 window start minus 14
+// Static chart-fixture spacing only. Mock mode does not run the mission clock;
+// live MET/D+ labels always come from the backend overview.
+const SAMPLE_SPACING_MS = 86_400_000;
+/** 17 synthetic readings for the design fixtures (not mission-clock dates). */
+const FIRST = Date.UTC(2026, 9, 28, 7);
 
 const HISTORY: Record<MetricType, number[]> = {
   heart_rate: [68, 70, 69, 71, 68, 69, 70, 68, 69, 71, 70, 69, 68, 70],
@@ -49,7 +51,7 @@ const REFERENCE: Record<MetricType, { median: number; scale: number }> = {
   sleep_hours: { median: 7.13, scale: 0.17 },
 };
 
-const ISO = (i: number) => new Date(FIRST + i * DAY_MS).toISOString();
+const ISO = (i: number) => new Date(FIRST + i * SAMPLE_SPACING_MS).toISOString();
 
 function buildSeries(
   type: MetricType,

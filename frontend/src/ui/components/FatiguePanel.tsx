@@ -34,6 +34,15 @@ export function FatiguePanel({ a, loading }: { a: FatigueAssessment; loading?: b
               <div className="mt-2">
                 <ReasonList reasons={a.reasons} />
               </div>
+              {a.explanation && (
+                <details className="mt-3 text-[12px] text-regolith">
+                  <summary className="cursor-pointer text-earth">Full analysis note</summary>
+                  <p className="mt-2 leading-relaxed">{a.explanation}</p>
+                  {a.engineVersion && (
+                    <p className="mt-2 text-[10px] text-ink">Engine: {a.engineVersion}</p>
+                  )}
+                </details>
+              )}
               {a.status !== "insufficient_data" && (
                 <button
                   onClick={() => scrollTo("anomaly-history")}

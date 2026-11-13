@@ -3,7 +3,7 @@ import { Plus, TriangleAlert } from "lucide-react";
 import type { MissionTask } from "../../shared/types";
 import { useHealth } from "../HealthContext";
 import type { TaskInput } from "../hooks/useHealthData";
-import { metDay, metStamp, hoursBetween } from "../lib/time";
+import { metDay, metStamp, hoursBetween, missionDayStart, missionHour } from "../lib/time";
 import { useNow } from "../hooks/useNow";
 import { Panel } from "../components/Panel";
 import { PageShell } from "../shell/PageShell";
@@ -35,11 +35,7 @@ export function SchedulePage() {
   const [formError, setFormError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
 
-  const windowStart = useMemo(() => {
-    const d = new Date(now);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  }, [now]);
+  const windowStart = useMemo(() => missionDayStart(now), [now]);
 
   const tasks = data?.tasks ?? [];
   const pct = (iso: string) =>
@@ -66,7 +62,14 @@ export function SchedulePage() {
       demand: form.demand,
     };
     setFormError(null);
-    await health.saveTask(task);
+    try {
+      await health.saveTask(task);
+    } catch (cause) {
+      setFormError(
+        cause instanceof Error ? cause.message : "The task could not be saved.",
+      );
+      return;
+    }
     setForm({ ...form, title: "" });
     setSavedMsg(true);
     window.setTimeout(() => setSavedMsg(false), 3000);
@@ -85,20 +88,21 @@ export function SchedulePage() {
 
         <Panel
           label="Circadian light guidance"
-          actions={<span className="tnum text-[11px] text-regolith">station day · 06:30 → 21:30 light</span>}
+          actions={<span className="tnum text-[11px] text-regolith">Earth 24 h clock · 06:30 → 21:30 light</span>}
         >
           <CircadianArcs now={now} wake={wake} />
           <p className="mt-3 text-[12px] leading-relaxed text-regolith">
             The amber arc is the recommended <span className="text-sun">bright-light window</span>; the
             shadowed arc is the recommended <span className="text-silver">dark / sleep window</span>.
             Anchoring demanding tasks and meals inside the light arc helps your rhythm stay
-            aligned to the station day.
+            aligned to the published 24 h Earth clock; mission labels use the 24.65 h
+            operational day.
           </p>
         </Panel>
 
         <Panel
           label="48-hour timeline"
-          actions={<span className="tnum text-[11px] text-regolith">{metStamp(windowStart)}Z → +{WINDOW_H}h</span>}
+          actions={<span className="tnum text-[11px] text-regolith">{metStamp(windowStart)} → +{WINDOW_H}h</span>}
         >
           {/* Visual timeline (list below is the accessible source of truth) */}
           <div
@@ -118,7 +122,7 @@ export function SchedulePage() {
                       className="tnum absolute top-0 text-[10px] text-regolith"
                       style={{ left: `${(i * 6 / WINDOW_H) * 100}%`, transform: i === WINDOW_H / 6 ? "translateX(-100%)" : undefined }}
                     >
-                      {metDay(t)} {String(t.getHours()).padStart(2, "0")}:00
+                      {metDay(t)} {String(Math.floor(missionHour(t))).padStart(2, "0")}:00
                     </span>
                   );
                 })}
@@ -268,7 +272,7 @@ export function SchedulePage() {
                     </span>
                   </div>
                   <p className="tnum mt-1 text-[12px] text-regolith">
-                    {metStamp(t.startsAt)}Z → {metStamp(t.endsAt)}Z
+                    {metStamp(t.startsAt)} → {metStamp(t.endsAt)}
                     {awakeH !== null && ` · awake ${awakeH} h at start`}
                   </p>
                   {conflict && (

@@ -22,6 +22,7 @@ class LimitSpec(TypedDict):
 # prototype plausibility ranges, not clinical thresholds
 LIMITS: dict[str, LimitSpec] = {
     "heart_rate": {"unit": "bpm", "hard": (20.0, 250.0), "soft": (40.0, 120.0)},
+    "hrv": {"unit": "ms", "hard": (5.0, 400.0), "soft": (10.0, 200.0)},
     "systolic_bp": {"unit": "mmHg", "hard": (50.0, 260.0), "soft": (90.0, 140.0)},
     "diastolic_bp": {"unit": "mmHg", "hard": (30.0, 160.0), "soft": (50.0, 90.0)},
     "body_temperature": {"unit": "C", "hard": (30.0, 43.0), "soft": (35.5, 37.8)},

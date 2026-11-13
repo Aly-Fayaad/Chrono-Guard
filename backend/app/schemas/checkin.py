@@ -34,6 +34,7 @@ class CardiovascularInput(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     heart_rate: float | None = None
+    hrv: float | None = None
     systolic_bp: float | None = None
     diastolic_bp: float | None = None
 

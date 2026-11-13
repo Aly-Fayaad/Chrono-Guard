@@ -6,10 +6,17 @@ the Overview Effect, not an admin panel.
 
 ## Run it
 
+Start the backend first (see `backend/README.md`), then:
+
 ```bash
 npm install
+cp .env.example .env.local   # optional; defaults to http://127.0.0.1:8000/api/v1
 npm run dev      # → http://localhost:5173 (or the next free port)
 ```
+
+The console reads everything health-related from `GET /api/v1/crew/{id}/overview`
+and writes check-ins/tasks to the API. If the API is unreachable, writes are kept
+in the Dexie queue and retried automatically.
 
 Demo/mock scenarios (append before the hash, e.g. `http://localhost:5174/?mock=sudden#/`):
 
@@ -55,9 +62,16 @@ MET clock, offline pill, and the same glass language.
 
 ## Data layer
 
-Unchanged from the original console: Dexie-backed pipeline (`runPipeline`),
-personal-baseline anomaly detection, fatigue assessment, guidance follow-ups,
-offline sync queue, and the `?mock=` fixture layer with identical shapes.
+The backend is the single source of truth. `src/api/client.ts` calls the FastAPI
+routes; `src/api/overview.ts` maps the response into the existing view model.
+Mission epoch/day length, MET, D+ labels, personal-baseline detections, fatigue
+status and assessment text all come from the server. `src/ui/lib/time.ts` only
+formats the values the backend returns (the built-in epoch/24.65 fallback exists
+solely to avoid an empty clock on the first paint before the overview response
+arrives). Schedule labels use the operational 24.65 h mission day, while the
+circadian light arcs stay on the published 24 h Earth clock. Dexie is still used
+for guidance follow-ups and the offline write queue. The `?mock=` fixture layer is
+unchanged for design work (mock writes are intentionally no-ops).
 
 ## Imagery
 

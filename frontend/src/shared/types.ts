@@ -1,5 +1,9 @@
 export type MetricType = "heart_rate" | "hrv" | "temperature" | "sleep_hours";
 
+export type Kss = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
+
+export type Mood = 1 | 2 | 3 | 4 | 5;
+
 export type Quality = "valid" | "suspect" | "invalid";
 
 export type MeasurementSource = "manual" | "simulated" | "device";
@@ -20,8 +24,8 @@ export interface CheckIn {
   id: string;
   crewId: string;
   recordedAt: string;
-  sleepiness: 1 | 2 | 3 | 4 | 5;
-  mood: 1 | 2 | 3 | 4 | 5;
+  sleepiness: Kss;
+  mood: Mood;
 }
 
 export interface MissionTask {
@@ -58,9 +62,22 @@ export type FatigueStatus =
   | "monitor"
   | "elevated_concern";
 
+export interface AssessmentFactor {
+  indicator: string;
+  observed: unknown;
+  reference: string;
+  note: string;
+}
+
 export interface FatigueAssessment {
   status: FatigueStatus;
   reasons: string[];
+  /** Backend assessment narrative, shown as supporting detail when present. */
+  summary?: string;
+  explanation?: string;
+  factors?: AssessmentFactor[];
+  engineVersion?: string;
+  createdAt?: string;
 }
 
 export type GuidanceEvidence = "well_supported" | "limited" | "needs_review";

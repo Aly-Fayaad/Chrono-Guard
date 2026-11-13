@@ -1,15 +1,16 @@
-"""Read-only assessment routes."""
+"""Read-only assessment routes plus safe historical re-analysis."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 
 from app.core.database import get_session
-from app.schemas.assessment import AssessmentRead
+from app.schemas.assessment import AssessmentRead, ReanalysisResult
 from app.services.history_service import (
     get_assessments,
     get_crew,
     get_latest_assessment,
 )
+from app.services.reanalysis_service import reanalyze_crew
 
 router = APIRouter(tags=["assessments"])
 
@@ -41,3 +42,21 @@ def read_latest_assessment(
     if assessment is None:
         raise HTTPException(status_code=404, detail="Assessment not found")
     return assessment
+
+
+@router.post(
+    "/crew/{crew_id}/assessments/reanalyze",
+    response_model=ReanalysisResult,
+)
+def reanalyze_assessments(
+    crew_id: str,
+    request: Request,
+    session: Session = Depends(get_session),
+) -> ReanalysisResult:
+    """Re-analyse stored check-ins without modifying the original records."""
+    if get_crew(session, crew_id) is None:
+        raise HTTPException(status_code=404, detail="Crew member not found")
+    engine = getattr(request.app.state, "analysis_engine", None)
+    if engine is None:
+        raise HTTPException(status_code=503, detail="Analysis engine is not configured")
+    return reanalyze_crew(session, crew_id, engine)

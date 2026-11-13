@@ -46,7 +46,7 @@ function ChartTooltip({
   if (!active || !p) return null;
   return (
     <div className="rounded-panel border border-hairline bg-raised px-3 py-2 font-mono text-[11px] leading-relaxed">
-      <p className="text-regolith">{metStamp(p.ts)}Z</p>
+      <p className="text-regolith">{metStamp(p.ts)}</p>
       <p className="text-moonlight">
         {p.value ?? p.invalid ?? "—"} <span className="text-regolith">{unit}</span>
       </p>
@@ -146,7 +146,7 @@ export function BaselineChartPanel({
             <tbody>
               {[...points].reverse().map((p) => (
                 <tr key={p.ts} className="border-t border-hairline">
-                  <td className="px-3 py-1.5 text-regolith">{metStamp(p.ts)}Z</td>
+                  <td className="px-3 py-1.5 text-regolith">{metStamp(p.ts)}</td>
                   <td className="px-3 py-1.5 text-moonlight">
                     {p.value ?? p.invalid ?? "—"} {meta.unit}
                   </td>
