@@ -29,6 +29,7 @@ _MEASUREMENT_FIELDS = (
     ("behavioral", MeasurementType.sleepiness_kss, "sleepiness_kss"),
     ("behavioral", MeasurementType.perceived_stress, "perceived_stress"),
     ("cardiovascular", MeasurementType.heart_rate, "heart_rate"),
+    ("cardiovascular", MeasurementType.hrv, "hrv"),
     ("cardiovascular", MeasurementType.systolic_bp, "systolic_bp"),
     ("cardiovascular", MeasurementType.diastolic_bp, "diastolic_bp"),
     ("physical", MeasurementType.body_temperature, "body_temperature"),
@@ -138,6 +139,16 @@ def list_checkins(session: Session, crew_id: str, limit: int, offset: int) -> li
         .order_by(CheckIn.submitted_at.desc())
         .offset(offset)
         .limit(limit)
+    )
+    return list(session.exec(statement).all())
+
+
+def list_all_checkins(session: Session, crew_id: str) -> list[CheckIn]:
+    """Return every check-in for a crew member, oldest first."""
+    statement = (
+        select(CheckIn)
+        .where(CheckIn.crew_id == crew_id)
+        .order_by(CheckIn.submitted_at)
     )
     return list(session.exec(statement).all())
 

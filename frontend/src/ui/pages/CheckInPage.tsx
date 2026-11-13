@@ -2,13 +2,23 @@ import { useMemo, useState } from "react";
 import { CheckCircle2, ChevronLeft, CircleCheck } from "lucide-react";
 import { useHealth } from "../HealthContext";
 import type { CheckInInput } from "../hooks/useHealthData";
+import type { Kss } from "../../shared/types";
 import { PageShell } from "../shell/PageShell";
 import { MoonPhaseProgress } from "../components/MoonPhaseProgress";
 
 type Scale = 1 | 2 | 3 | 4 | 5;
 
-const SLEEPINESS_LABELS: Record<Scale, string> = {
-  1: "Exhausted", 2: "Very tired", 3: "Tired", 4: "Slightly tired", 5: "Alert",
+/** Karolinska Sleepiness Scale anchors (1-9), verbatim instrument labels. */
+const SLEEPINESS_LABELS: Record<Kss, string> = {
+  1: "Extremely alert",
+  2: "Very alert",
+  3: "Alert",
+  4: "Rather alert",
+  5: "Neither",
+  6: "Some signs",
+  7: "Sleepy",
+  8: "Effort to stay awake",
+  9: "Fighting sleep",
 };
 const MOOD_LABELS: Record<Scale, string> = {
   1: "Very low", 2: "Low", 3: "Neutral", 4: "Good", 5: "Great",
@@ -43,7 +53,7 @@ export function CheckInPage() {
   const [heartRate, setHeartRate] = useState("");
   const [hrv, setHrv] = useState("");
   const [temperature, setTemperature] = useState("");
-  const [sleepiness, setSleepiness] = useState<Scale>(3);
+  const [sleepiness, setSleepiness] = useState<Kss>(5);
   const [mood, setMood] = useState<Scale>(3);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -156,9 +166,7 @@ export function CheckInPage() {
         phase: "Sleepiness",
         question: "How sleepy do you feel right now?",
         body: (
-          <ScaleGroup
-            legend="Sleepiness (1–5)"
-            labels={SLEEPINESS_LABELS}
+          <KssGroup
             value={sleepiness}
             onChange={setSleepiness}
           />
@@ -217,6 +225,12 @@ export function CheckInPage() {
         wokeAt: wokeAt || undefined,
       } satisfies CheckInInput);
       setSaved(true);
+    } catch (cause) {
+      setError(
+        cause instanceof Error
+          ? cause.message
+          : "The check-in could not be submitted. Please try again.",
+      );
     } finally {
       setSaving(false);
     }
@@ -234,7 +248,8 @@ export function CheckInPage() {
           <p className="label-eyebrow">Moon · A quiet daily ritual</p>
           <h1 className="font-display mt-0.5 text-[22px] font-medium text-moonlight">Check-in</h1>
           <p className="mt-1 text-[12px] text-regolith">
-            Seven small moments with yourself. Entries save locally and sync when connectivity returns.
+            Seven small moments with yourself. Entries are stored by the mission server and
+            sync automatically if the relay is down.
           </p>
         </div>
 
@@ -308,6 +323,51 @@ export function CheckInPage() {
         </p>
       </div>
     </PageShell>
+  );
+}
+
+function KssGroup({
+  value,
+  onChange,
+}: {
+  value: Kss;
+  onChange: (v: Kss) => void;
+}) {
+  return (
+    <fieldset>
+      <legend className="label-eyebrow mb-2">Sleepiness — KSS 1–9</legend>
+      <div
+        className="grid grid-cols-3 gap-1.5 sm:grid-cols-9"
+        role="radiogroup"
+        aria-label="Karolinska Sleepiness Scale, 1 extremely alert to 9 fighting sleep"
+      >
+        {([1, 2, 3, 4, 5, 6, 7, 8, 9] as const).map((n) => {
+          const active = value === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              aria-label={`${n}: ${SLEEPINESS_LABELS[n]}`}
+              onClick={() => onChange(n)}
+              className={`motion-fade flex min-h-[56px] flex-col items-center justify-center gap-0.5 rounded-panel border px-1 ${
+                active
+                  ? "border-earth/70 bg-raised text-moonlight"
+                  : "border-hairline bg-panel text-regolith hover:border-regolith/40"
+              }`}
+            >
+              <span className="tnum text-[15px]">{n}</span>
+              <span className="text-[9px] leading-tight">{SLEEPINESS_LABELS[n]}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[11px] text-ink">
+        1 = extremely alert · 9 = extremely sleepy, fighting sleep. This self-report is
+        kept separate from the model&apos;s predicted KSS.
+      </p>
+    </fieldset>
   );
 }
 

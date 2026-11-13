@@ -27,6 +27,7 @@ def _post_checkin(client, crew_id: str, payload: dict):
 
 def test_checkin_saves_measurements_and_sleep(client, crew_id: str) -> None:
     """A valid check-in persists measurements, sleep, and computed duration."""
+    client.app.state.analysis_engine = None
     response = _post_checkin(client, crew_id, _full_payload(datetime.now(timezone.utc)))
     assert response.status_code == 201
     body = response.json()

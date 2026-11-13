@@ -11,6 +11,8 @@ export interface QueueItem {
   kind: string;
   payload: unknown;
   createdAt: string;
+  attempts?: number;
+  lastError?: string;
 }
 
 class ChronoGuardDB extends Dexie {

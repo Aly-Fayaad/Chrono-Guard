@@ -1,7 +1,7 @@
 import type { BodyKind } from "../CelestialBody";
 import type { HealthData } from "../../hooks/useHealthData";
 import { MOOD, FATIGUE_SCORE } from "../mood";
-import { countdown, hoursBetween } from "../../lib/time";
+import { countdown, hoursBetween, metStamp } from "../../lib/time";
 
 export interface HubBodyDef {
   key: string;
@@ -117,7 +117,7 @@ export function bodyTeasers(health: HealthData, now: Date): Record<string, strin
   t.schedule = upcoming
     ? `Next: ${upcoming.title} · ${countdown(upcoming.startsAt, now)}`
     : wake
-      ? `Awake since ${new Date(wake).getUTCHours().toString().padStart(2, "0")}:${new Date(wake).getUTCMinutes().toString().padStart(2, "0")}Z`
+      ? `Awake since ${metStamp(wake)}`
       : "No upcoming tasks";
 
   // Constellation — guidance
