@@ -205,14 +205,10 @@ export function CheckInPage() {
     };
     setError(null);
     if (check("sleepHours", sleepHours) || check("heartRate", heartRate) || check("hrv", hrv) || check("temperature", temperature)) return;
-    if (
-      parsed.sleepHours === undefined && parsed.heartRate === undefined &&
-      parsed.hrv === undefined && parsed.temperature === undefined
-    ) {
-      setError("Add at least one vital reading so the console has something to learn from.");
-      return;
-    }
 
+    // The backend accepts a mood/KSS-only check-in, so an empty optional
+    // vitals section is valid. The required sleepiness and mood fields below
+    // always give the analysis something to read.
     setSaving(true);
     try {
       await health.saveCheckIn({
@@ -249,7 +245,7 @@ export function CheckInPage() {
           <h1 className="font-display mt-0.5 text-[22px] font-medium text-moonlight">Check-in</h1>
           <p className="mt-1 text-[12px] text-regolith">
             Seven small moments with yourself. Entries are stored by the mission server and
-            sync automatically if the relay is down.
+            submitted directly to the mission server.
           </p>
         </div>
 

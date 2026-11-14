@@ -42,8 +42,8 @@ class OverviewMeasurement(BaseModel):
     value: float
     unit: str
     recorded_at: datetime
-    source: Literal["manual", "simulated", "device"]
-    quality: Literal["valid", "suspect", "invalid"]
+    source: Literal["manual", "simulated", "device_import"]
+    quality: Literal["valid", "questionable", "missing"]
 
 
 class OverviewDetection(BaseModel):

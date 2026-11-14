@@ -551,7 +551,13 @@ def seed_scenario(
                 "crew_id": spec.crew_id,
             }
         _delete_crew(session, spec.crew_id)
-    session.add_all(_rows_for(spec))
+    rows = _rows_for(spec)
+    # The models intentionally have no ORM relationships, so SQLAlchemy cannot
+    # infer that the crew row must be inserted before its children. Flush it
+    # first; PostgreSQL (and SQLite with foreign_keys=ON) enforces the FK.
+    session.add(rows[0])
+    session.flush()
+    session.add_all(rows[1:])
     session.commit()
     return {"scenario": spec.key, "created": True, "crew_id": spec.crew_id}
 

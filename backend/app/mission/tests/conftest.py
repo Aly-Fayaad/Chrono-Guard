@@ -15,7 +15,6 @@ from sqlmodel import Session, SQLModel
 from app.core.database import build_engine, get_session
 from app.main import create_app
 from app.mission.followups import reset_follow_ups
-from app.mission.router import router as mission_router
 from app.models import CrewProfile  # importing the package registers every table
 
 
@@ -67,7 +66,6 @@ def client(
             yield db_session
 
     app.dependency_overrides[get_session] = override_session
-    app.include_router(mission_router, prefix="/api/v1")
     try:
         with TestClient(app) as test_client:
             yield test_client

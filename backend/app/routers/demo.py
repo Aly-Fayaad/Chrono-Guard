@@ -11,7 +11,6 @@ from app.schemas.crew import SeedResult
 from app.seed.demo_data import Scenario, seed_scenario
 from app.services import checkin_service
 from app.services.analysis import AnalysisEngine
-from app.services.history_service import get_latest_assessment
 
 logger = logging.getLogger(__name__)
 
@@ -22,19 +21,14 @@ def _analyze_latest(
     session: Session, crew_id: str, engine: AnalysisEngine | None
 ) -> None:
     """Generate one assessment for seeded data so the console has real output."""
-    if engine is None or get_latest_assessment(session, crew_id) is not None:
+    if engine is None:
         return
-    checkins = checkin_service.list_checkins(session, crew_id, 1, 0)
-    if not checkins:
+    latest = checkin_service.get_latest_checkin(session, crew_id)
+    if latest is None:
         return
-    try:
-        assessment = engine.analyze(session, crew_id, checkins[0].id)
-        if assessment is not None:
-            session.add(assessment)
-            session.commit()
-    except Exception:  # noqa: BLE001 - seeding must still succeed
-        session.rollback()
-        logger.exception("Analysis engine failed while seeding %s", crew_id)
+    assessment = checkin_service.run_analysis(session, crew_id, latest.id, engine)
+    if assessment is None:
+        logger.info("No assessment generated while seeding %s", crew_id)
 
 
 @router.post("/demo/seed", response_model=SeedResult)

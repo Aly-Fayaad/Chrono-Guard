@@ -2,10 +2,11 @@
 
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlmodel import Session
 
 from app.core.database import get_session
+from app.models.enums import TaskType, WorkloadLevel
 from app.schemas.mission import (
     MissionDeleteResult,
     MissionTaskCreate,
@@ -33,15 +34,39 @@ def create_mission(
 @router.get("/crew/{crew_id}/missions", response_model=list[MissionTaskRead])
 def list_missions(
     crew_id: str,
+    response: Response,
     upcoming: bool = False,
     from_time: datetime | None = Query(default=None, alias="from"),
     to_time: datetime | None = Query(default=None, alias="to"),
+    task_type: TaskType | None = Query(default=None),
+    workload_level: WorkloadLevel | None = Query(default=None),
+    is_critical: bool | None = Query(default=None),
+    horizon_hours: int | None = Query(default=None, ge=1, le=720),
     session: Session = Depends(get_session),
 ) -> list[MissionTaskRead]:
-    """List mission tasks, optionally restricted to an upcoming window."""
+    """List mission tasks with optional upcoming-window and attribute filters.
+
+    ``upcoming=true`` without ``horizon_hours`` keeps the existing behaviour of
+    returning all future tasks. Supplying ``horizon_hours`` restricts that to
+    the next N hours. The shared helper
+    ``history_service.get_upcoming_tasks`` defaults to 72 hours; this route does
+    not, so existing clients are not silently truncated.
+    """
     if get_crew(session, crew_id) is None:
         raise HTTPException(status_code=404, detail="Crew member not found")
-    return mission_service.list_tasks(session, crew_id, upcoming, from_time, to_time)
+    filters = {
+        "upcoming": upcoming,
+        "from_time": from_time,
+        "to_time": to_time,
+        "task_type": task_type,
+        "workload_level": workload_level,
+        "is_critical": is_critical,
+        "horizon_hours": horizon_hours,
+    }
+    response.headers["X-Total-Count"] = str(
+        mission_service.count_tasks(session, crew_id, **filters)
+    )
+    return mission_service.list_tasks(session, crew_id, **filters)
 
 
 @router.get("/crew/{crew_id}/missions/{task_id}", response_model=MissionTaskRead)

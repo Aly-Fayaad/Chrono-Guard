@@ -1,6 +1,6 @@
 """Check-in routes."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from sqlmodel import Session
 
 from app.core.database import get_session
@@ -38,6 +38,7 @@ def create_checkin(
 @router.get("/crew/{crew_id}/checkins", response_model=list[CheckInRead])
 def list_checkins(
     crew_id: str,
+    response: Response,
     limit: int = Query(checkin_service.DEFAULT_CHECKIN_LIMIT, ge=1, le=checkin_service.MAX_CHECKIN_LIMIT),
     offset: int = Query(0, ge=0),
     session: Session = Depends(get_session),
@@ -45,6 +46,9 @@ def list_checkins(
     """List a crew member's check-ins, newest first."""
     if get_crew(session, crew_id) is None:
         raise HTTPException(status_code=404, detail="Crew member not found")
+    response.headers["X-Total-Count"] = str(
+        checkin_service.count_checkins(session, crew_id)
+    )
     return checkin_service.list_checkins(session, crew_id, limit, offset)
 
 

@@ -18,6 +18,12 @@ The console reads everything health-related from `GET /api/v1/crew/{id}/overview
 and writes check-ins/tasks to the API. If the API is unreachable, writes are kept
 in the Dexie queue and retried automatically.
 
+On a fresh database the client calls `POST /api/v1/crew` once to create the demo
+profile (`crew-demo-01`), then reloads the overview. Set
+`VITE_AUTO_PROVISION_CREW=false` in `.env.local` to disable this and provision
+crews yourself. The client also exposes `GET /dashboard/summary`,
+`GET /assessments/{id}`, and `POST /analysis/run` for the new backend routes.
+
 Demo/mock scenarios (append before the hash, e.g. `http://localhost:5174/?mock=sudden#/`):
 
 | Query | Scenario |
@@ -72,6 +78,12 @@ arrives). Schedule labels use the operational 24.65 h mission day, while the
 circadian light arcs stay on the published 24 h Earth clock. Dexie is still used
 for guidance follow-ups and the offline write queue. The `?mock=` fixture layer is
 unchanged for design work (mock writes are intentionally no-ops).
+
+Wire types mirror the backend: `quality` is `valid | questionable | missing`,
+`source` is `manual | simulated | device_import`, and check-in submissions accept
+`manual | device_import` (default `manual`). The frontend never sends `simulated`.
+API errors read the unified `detail: [{loc, msg, type}]` list and surface the first
+message.
 
 ## Imagery
 

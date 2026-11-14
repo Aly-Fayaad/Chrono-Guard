@@ -62,6 +62,7 @@ def _seed_crew_with_data(session_factory: Callable[[], Session]) -> None:
                 sleep_target_hours=8.0,
             )
         )
+        session.flush()
         session.add(
             Assessment(
                 id="assessment-api",
@@ -192,16 +193,15 @@ def test_schedule_unknown_crew_returns_consistent_error(client) -> None:
 
 
 def test_schedule_invalid_view_returns_validation_error(client, seeded) -> None:
-    """An unsupported schedule view is rendered with the mission error body."""
+    """An unsupported schedule view uses the API-wide 422 detail-list shape."""
     response = client.get(
         f"{MISSION_INTEL}/schedule",
         params={"view": "monthly", "date": "2026-11-13"},
     )
     assert response.status_code == 422
     body = response.json()
-    assert body["error"]["code"] == "validation_error"
-    assert body["error"]["message"] == "Request validation failed."
-    assert body["error"]["details"]
+    assert body["detail"]
+    assert set(body["detail"][0]) == {"loc", "msg", "type"}
 
 
 # ---------------------------------------------------------------------------
@@ -392,11 +392,8 @@ def test_what_if_unknown_task_is_422(client, seeded) -> None:
     response = client.post(f"{MISSION_INTEL}/what-if", json=payload)
     assert response.status_code == 422
     body = response.json()
-    assert body["error"]["code"] == "validation_error"
-    assert body["error"]["details"] == {
-        "operation_index": 0,
-        "operation_type": "move_task",
-    }
+    assert body["detail"]
+    assert set(body["detail"][0]) == {"loc", "msg", "type"}
 
 
 def test_what_if_rejects_bad_discriminator(client, seeded) -> None:
@@ -408,7 +405,7 @@ def test_what_if_rejects_bad_discriminator(client, seeded) -> None:
     }
     response = client.post(f"{MISSION_INTEL}/what-if", json=payload)
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["detail"]
 
 
 def test_what_if_rejects_empty_operations(client, seeded) -> None:
@@ -420,7 +417,7 @@ def test_what_if_rejects_empty_operations(client, seeded) -> None:
     }
     response = client.post(f"{MISSION_INTEL}/what-if", json=payload)
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["detail"]
 
 
 def test_what_if_rejects_naive_window(client, seeded) -> None:
@@ -432,7 +429,7 @@ def test_what_if_rejects_naive_window(client, seeded) -> None:
     }
     response = client.post(f"{MISSION_INTEL}/what-if", json=payload)
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["detail"]
 
 
 # ---------------------------------------------------------------------------
@@ -492,7 +489,10 @@ def test_follow_up_completion_requires_approval(client, seeded) -> None:
         json={"action": "complete"},
     )
     assert completed.status_code == 422
-    assert completed.json()["error"]["code"] == "mission_approval_required"
+    detail = completed.json()["detail"]
+    assert detail
+    assert set(detail[0]) == {"loc", "msg", "type"}
+    assert "approval" in detail[0]["msg"].lower()
 
 
 def test_follow_up_complete_with_approval_is_terminal(client, seeded) -> None:
@@ -601,7 +601,7 @@ def test_follow_up_requires_window_pair(client, seeded) -> None:
         },
     )
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["detail"]
 
 
 def test_follow_up_invalid_action(client, seeded) -> None:
@@ -612,4 +612,4 @@ def test_follow_up_invalid_action(client, seeded) -> None:
         json={"action": "reopen"},
     )
     assert response.status_code == 422
-    assert response.json()["error"]["code"] == "validation_error"
+    assert response.json()["detail"]

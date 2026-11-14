@@ -1,8 +1,7 @@
 """Mission-intelligence API errors and consistent error responses.
 
 Every mission endpoint uses :class:`MissionRoute`, a thin ``APIRoute`` subclass
-that converts the exceptions below (and FastAPI request-validation errors) into
-one stable JSON body::
+that converts mission-specific 404/409 errors into one stable JSON body::
 
     {
       "error": {
@@ -13,8 +12,11 @@ one stable JSON body::
       "data_warnings": []
     }
 
-The ``data_warnings`` key is present even on errors so every response from this
-router has the same top-level shape.
+``422`` responses are the exception: they use the API-wide
+``{"detail": [{"loc", "msg", "type"}]}`` shape so request-validation and domain
+errors look the same across every router. The ``data_warnings`` key is present
+even on mission-specific errors so every non-422 error from this router has the
+same top-level shape.
 
 The error classes are deliberately small. They describe HTTP concerns only; no
 scientific or policy decision is encoded here.
@@ -29,6 +31,11 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from fastapi.routing import APIRoute
+
+from app.core.errors import (
+    domain_validation_response,
+    request_validation_response,
+)
 
 
 class MissionError(Exception):
@@ -148,24 +155,6 @@ def mission_error_response(exc: MissionError) -> JSONResponse:
     )
 
 
-def _validation_details(exc: RequestValidationError) -> list[dict[str, Any]]:
-    """Return JSON-safe request-validation details.
-
-    Pydantic's raw ``errors()`` output may contain non-serialisable ``ctx``
-    values, so only the stable fields are kept.
-    """
-    details: list[dict[str, Any]] = []
-    for error in exc.errors():
-        details.append(
-            {
-                "loc": list(error.get("loc", [])),
-                "msg": str(error.get("msg", "")),
-                "type": str(error.get("type", "")),
-            }
-        )
-    return details
-
-
 class MissionRoute(APIRoute):
     """APIRoute that renders mission errors with the shared body shape."""
 
@@ -177,17 +166,12 @@ class MissionRoute(APIRoute):
             try:
                 return await original_handler(request)
             except MissionError as exc:
+                # Every 422 uses the same detail-list shape as the rest of the
+                # API. Mission-specific 404/409 bodies remain unchanged.
+                if exc.status_code == 422:
+                    return domain_validation_response(exc.message)
                 return mission_error_response(exc)
             except RequestValidationError as exc:
-                return JSONResponse(
-                    status_code=422,
-                    content=jsonable_encoder(
-                        error_body(
-                            "validation_error",
-                            "Request validation failed.",
-                            _validation_details(exc),
-                        )
-                    ),
-                )
+                return request_validation_response(exc)
 
         return mission_handler

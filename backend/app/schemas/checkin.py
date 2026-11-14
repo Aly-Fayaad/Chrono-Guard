@@ -1,11 +1,23 @@
 """Check-in form input and response schemas."""
 
 from datetime import datetime
+from enum import Enum
 
 from pydantic import BaseModel, ConfigDict
 
 from app.models.enums import MeasurementSource, MeasurementType, QualityFlag
 from app.schemas.assessment import AssessmentRead
+
+
+class CheckInSource(str, Enum):
+    """Sources an API client may submit.
+
+    ``simulated`` is reserved for server-side demo seeding; accepting it here
+    would let a client label synthetic data as a real check-in.
+    """
+
+    manual = "manual"
+    device_import = "device_import"
 
 
 class SleepInput(BaseModel):
@@ -53,6 +65,7 @@ class CheckInCreate(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     recorded_at: datetime | None = None
+    source: CheckInSource = CheckInSource.manual
     sleep: SleepInput | None = None
     behavioral: BehavioralInput | None = None
     cardiovascular: CardiovascularInput | None = None

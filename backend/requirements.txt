@@ -2,6 +2,7 @@ fastapi==0.115.5
 uvicorn[standard]==0.32.0
 sqlmodel==0.0.22
 pydantic-settings==2.6.1
+psycopg[binary]==3.3.9
 numpy>=1.26
 pandas>=2.1
 scipy>=1.11

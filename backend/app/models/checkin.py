@@ -18,7 +18,9 @@ class CheckIn(SQLModel, table=True):
     __table_args__ = (Index("ix_checkin_crew_submitted", "crew_id", "submitted_at"),)
 
     id: str = Field(default_factory=new_id, primary_key=True)
-    crew_id: str = Field(foreign_key="crewprofile.id", nullable=False)
+    crew_id: str = Field(
+        foreign_key="crewprofile.id", ondelete="CASCADE", nullable=False
+    )
     submitted_at: datetime = Field(default_factory=utcnow, sa_type=UTCDateTime, nullable=False)
     notes: str | None = Field(default=None)
 
@@ -29,8 +31,12 @@ class HealthMeasurement(SQLModel, table=True):
     __table_args__ = (Index("ix_measurement_crew_recorded", "crew_id", "recorded_at"),)
 
     id: str = Field(default_factory=new_id, primary_key=True)
-    crew_id: str = Field(foreign_key="crewprofile.id", nullable=False)
-    checkin_id: str | None = Field(default=None, foreign_key="checkin.id")
+    crew_id: str = Field(
+        foreign_key="crewprofile.id", ondelete="CASCADE", nullable=False
+    )
+    checkin_id: str | None = Field(
+        default=None, foreign_key="checkin.id", ondelete="CASCADE"
+    )
     type: MeasurementType = Field(sa_type=MEASUREMENT_TYPE, nullable=False)
     value: float = Field(nullable=False)
     unit: str = Field(nullable=False)
@@ -47,8 +53,12 @@ class SleepRecord(SQLModel, table=True):
     __table_args__ = (Index("ix_sleep_crew_start", "crew_id", "sleep_start"),)
 
     id: str = Field(default_factory=new_id, primary_key=True)
-    crew_id: str = Field(foreign_key="crewprofile.id", nullable=False)
-    checkin_id: str | None = Field(default=None, foreign_key="checkin.id")
+    crew_id: str = Field(
+        foreign_key="crewprofile.id", ondelete="CASCADE", nullable=False
+    )
+    checkin_id: str | None = Field(
+        default=None, foreign_key="checkin.id", ondelete="CASCADE"
+    )
     sleep_start: datetime = Field(sa_type=UTCDateTime, nullable=False)
     sleep_end: datetime = Field(sa_type=UTCDateTime, nullable=False)
     duration_hours: float = Field(nullable=False)

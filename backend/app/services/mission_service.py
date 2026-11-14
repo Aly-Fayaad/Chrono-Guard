@@ -1,12 +1,16 @@
 """Mission task business logic."""
 
-from datetime import datetime
+from __future__ import annotations
 
+from datetime import datetime, timedelta
+
+from sqlalchemy import func
 from sqlmodel import Session
 from sqlmodel import select
 
 from app.core.database import to_utc, utcnow
 from app.mission.task_checks import log_task_warnings
+from app.models.enums import TaskType, WorkloadLevel
 from app.models.mission import MissionTask
 from app.schemas.mission import MissionTaskCreate, MissionTaskUpdate
 from app.services.validation import ValidationFailure
@@ -44,23 +48,103 @@ def create_task(session: Session, crew_id: str, payload: MissionTaskCreate) -> M
     return task
 
 
+def _task_statement(
+    crew_id: str,
+    upcoming: bool = False,
+    from_time: datetime | None = None,
+    to_time: datetime | None = None,
+    task_type: TaskType | None = None,
+    workload_level: WorkloadLevel | None = None,
+    is_critical: bool | None = None,
+    horizon_hours: int | None = None,
+):
+    """Build the shared mission-task filter statement."""
+    statement = select(MissionTask).where(MissionTask.crew_id == crew_id)
+
+    lower: datetime | None = None
+    if upcoming:
+        lower = to_utc(from_time) if from_time is not None else utcnow()
+        statement = statement.where(MissionTask.start_time >= lower)
+    elif from_time is not None:
+        lower = to_utc(from_time)
+        statement = statement.where(MissionTask.start_time >= lower)
+
+    upper = to_utc(to_time) if to_time is not None else None
+    if upcoming and horizon_hours is not None:
+        horizon_start = lower or utcnow()
+        horizon_upper = horizon_start + timedelta(hours=horizon_hours)
+        upper = min(upper, horizon_upper) if upper is not None else horizon_upper
+    if upper is not None:
+        statement = statement.where(MissionTask.start_time <= upper)
+
+    if task_type is not None:
+        statement = statement.where(MissionTask.task_type == task_type)
+    if workload_level is not None:
+        statement = statement.where(MissionTask.workload_level == workload_level)
+    if is_critical is not None:
+        statement = statement.where(MissionTask.is_critical == is_critical)
+    return statement
+
+
 def list_tasks(
     session: Session,
     crew_id: str,
     upcoming: bool = False,
     from_time: datetime | None = None,
     to_time: datetime | None = None,
+    *,
+    task_type: TaskType | None = None,
+    workload_level: WorkloadLevel | None = None,
+    is_critical: bool | None = None,
+    horizon_hours: int | None = None,
 ) -> list[MissionTask]:
-    """Return mission tasks, earliest first, with optional window filters."""
-    statement = select(MissionTask).where(MissionTask.crew_id == crew_id)
-    if upcoming:
-        lower = to_utc(from_time) if from_time is not None else utcnow()
-        statement = statement.where(MissionTask.start_time >= lower)
-    elif from_time is not None:
-        statement = statement.where(MissionTask.start_time >= to_utc(from_time))
-    if to_time is not None:
-        statement = statement.where(MissionTask.start_time <= to_utc(to_time))
-    return list(session.exec(statement.order_by(MissionTask.start_time)).all())
+    """Return mission tasks, earliest first, with optional filters.
+
+    ``upcoming=true`` without ``horizon_hours`` means "all future tasks", which
+    matches the existing HTTP contract. ``horizon_hours`` is only applied when
+    ``upcoming=true``. The shared read helper
+    ``history_service.get_upcoming_tasks`` keeps its 72-hour default for P3/P4.
+    """
+    statement = _task_statement(
+        crew_id,
+        upcoming,
+        from_time,
+        to_time,
+        task_type,
+        workload_level,
+        is_critical,
+        horizon_hours,
+    )
+    return list(
+        session.exec(statement.order_by(MissionTask.start_time, MissionTask.id)).all()
+    )
+
+
+def count_tasks(
+    session: Session,
+    crew_id: str,
+    upcoming: bool = False,
+    from_time: datetime | None = None,
+    to_time: datetime | None = None,
+    *,
+    task_type: TaskType | None = None,
+    workload_level: WorkloadLevel | None = None,
+    is_critical: bool | None = None,
+    horizon_hours: int | None = None,
+) -> int:
+    """Count mission tasks matching the same filters as ``list_tasks``."""
+    statement = _task_statement(
+        crew_id,
+        upcoming,
+        from_time,
+        to_time,
+        task_type,
+        workload_level,
+        is_critical,
+        horizon_hours,
+    )
+    count_statement = select(func.count()).select_from(statement.subquery())
+    return int(session.exec(count_statement).one())
 
 
 def get_task(session: Session, crew_id: str, task_id: str) -> MissionTask | None:

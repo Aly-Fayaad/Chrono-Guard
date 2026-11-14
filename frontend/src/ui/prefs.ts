@@ -3,7 +3,7 @@ import { useSyncExternalStore } from "react";
 /**
  * Tiny persisted preference store, shared across pages.
  * Values live in localStorage so they survive reloads (the console is
- * expected to run offline; storage failures degrade gracefully).
+ * stores display preferences only; storage failures degrade gracefully).
  */
 export interface Prefs {
   /** Swap the Hub scene for a plain list of destinations. */

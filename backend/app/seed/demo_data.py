@@ -8,6 +8,7 @@ from typing import Literal
 from sqlmodel import Session
 from sqlmodel import select
 
+from app.core.config import get_settings
 from app.core.database import engine, init_db, utcnow
 from app.models import (
     ActionHistory,
@@ -19,6 +20,8 @@ from app.models import (
     SleepRecord,
 )
 from app.models.enums import MeasurementSource, MeasurementType, TaskType, WorkloadLevel
+from app.services.analysis import load_engine
+from app.services.reanalysis_service import reanalyze_crew
 from app.services.validation import quality_for, unit_for, validate_sleep
 
 Scenario = Literal["normal_routine", "reduced_recovery", "incomplete_records"]
@@ -222,6 +225,9 @@ def seed_scenario(session: Session, scenario: Scenario, reset: bool = False) -> 
             sleep_target_hours=sleep_target,
         )
     )
+    # Flush the parent before children; the models have no ORM relationships,
+    # so the unit of work cannot infer the foreign-key insert order.
+    session.flush()
     BUILDERS[scenario](session, crew_id, utcnow().replace(microsecond=0), random.Random(f"{SEED}:{scenario}"))
     session.commit()
     return {"scenario": scenario, "created": True, "crew_id": crew_id}
@@ -232,14 +238,32 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Seed synthetic ChronoGuard demo data.")
     parser.add_argument("--scenario", choices=SEED_SCENARIOS, default=None)
     parser.add_argument("--reset", action="store_true")
+    parser.add_argument(
+        "--analyze",
+        action="store_true",
+        help="Run the configured analysis engine on every seeded check-in.",
+    )
     args = parser.parse_args()
     init_db()
+    analysis_engine = (
+        load_engine(get_settings().ANALYSIS_ENGINE) if args.analyze else None
+    )
     with Session(engine, expire_on_commit=False) as session:
         selected = [args.scenario] if args.scenario else list(SEED_SCENARIOS)
         for name in selected:
             result = seed_scenario(session, name, reset=args.reset)
             state = "created" if result["created"] else "skipped"
             print(f"{name}: {state} ({result['crew_id']})")
+            if analysis_engine is not None:
+                report = reanalyze_crew(
+                    session, str(result["crew_id"]), analysis_engine
+                )
+                print(
+                    "  analysis: "
+                    f"{report.succeeded} created, "
+                    f"{report.skipped} skipped, "
+                    f"{report.failed} failed"
+                )
 
 
 if __name__ == "__main__":

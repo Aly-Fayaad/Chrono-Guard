@@ -248,7 +248,7 @@ export function SchedulePage() {
               <p className="text-[11px] text-review sm:col-span-5" role="alert">{formError}</p>
             )}
             {savedMsg && (
-              <p className="text-[11px] text-nominal sm:col-span-5" role="status">Task saved locally.</p>
+              <p className="text-[11px] text-nominal sm:col-span-5" role="status">Task saved to the mission server.</p>
             )}
           </form>
         </Panel>
@@ -285,7 +285,7 @@ export function SchedulePage() {
             })}
             {!tasks.length && (
               <li className="p-5 text-[12px] text-regolith">
-                No tasks scheduled. Add one above — entries save locally.
+                No tasks scheduled. Add one above — entries save to the mission server.
               </li>
             )}
           </ul>

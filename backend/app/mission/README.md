@@ -303,8 +303,8 @@ conventions, not NASA instruments.
    crew-local time are not modelled.
 4. **Task fields are partly derived.** The database has no priority, required
    alertness, or status columns; these come from `config.py` mapping.
-5. **Tasks are start-only in a window.** A task that starts before the window and
-   overlaps into it is not returned by `get_upcoming_tasks`.
+5. **Tasks use interval overlap in a window.** A task already in progress at a
+   window boundary is included in mission-intelligence evaluation.
 6. **Sleep windows are inferred.** `planned_sleep_windows` requires at least
    `HABITUAL_SLEEP_MIN_RECORDS` consistent records; it is not a mission-planning
    input.
@@ -330,7 +330,7 @@ below has a documented fallback. Full details and exact field requests:
 
 | Need | Current fallback | Impact |
 | --- | --- | --- |
-| Task-overlap query (`get_tasks_overlapping`) | Start-only loading | Tasks already running when a window opens are invisible |
+| Task-overlap query (`get_tasks_overlapping`) | Interval-overlap loading in `get_upcoming_tasks` | Covered for mission-intelligence windows |
 | `MissionTask.status` | `DEFAULT_TASK_STATUS = planned` | Completed/cancelled tasks keep driving conflicts |
 | Persistent follow-up linkage | Process-local store | Records lost on restart; no `GET /follow-ups` |
 | `MissionTask.priority` | Derived from workload + `is_critical` | Display and rules use derived values |
@@ -416,7 +416,7 @@ Test coverage includes:
 | `404 crew_not_found` | Unknown crew id | Seed scenarios or use an existing crew. |
 | `422 validation_error` on a window | Naive, reversed, or malformed datetime | Send RFC 3339 with `Z`/offset and `end > start`. |
 | Conflicts are empty but warnings are not | A rule was skipped or input is missing | Show the warning; do not treat as “safe”. |
-| A task overlapping the window is missing | Start-only loading limitation | Documented Person 2 dependency; do not patch the UI around it. |
+| A task overlapping the window is missing | Confirm its interval intersects the requested window | Overlapping tasks are loaded for mission-intelligence windows. |
 | Follow-up disappeared | API restarted; store is process-local | Recreate it; the warning says so. |
 | `404 recommendation_not_found` | Different window or changed data | Use the same window that produced the recommendation. |
 | `409 invalid_status_transition` | Repeating or invalid action | Refresh the record; `skipped`/`completed` are terminal. |

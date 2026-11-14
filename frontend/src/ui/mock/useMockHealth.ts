@@ -5,8 +5,6 @@ import { mockPipeline, type MockScenario } from "./mockData";
 export interface MockHealthSource {
   data: PipelineResult | null;
   refresh: () => Promise<void>;
-  online: boolean;
-  queued: number;
   /** Guidance follow-up overrides applied on top of the fixture. */
   actions: Record<string, FollowUpAction>;
   saveGuidanceAction: (guidanceId: string, action: FollowUpAction) => Promise<void>;
@@ -48,8 +46,6 @@ export function useMockHealth(scenario: string | null): MockHealthSource {
   return {
     data: valid ? data : null,
     refresh,
-    online: true,
-    queued: 0,
     actions,
     saveGuidanceAction,
   };

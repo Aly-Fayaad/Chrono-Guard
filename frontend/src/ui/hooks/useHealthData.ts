@@ -32,8 +32,6 @@ export interface HealthData {
   data: PipelineResult | null;
   mission: MissionClockInfo | null;
   refresh: () => Promise<void>;
-  online: boolean;
-  queued: number;
   error: string | null;
   isMock: boolean;
   guidanceActions: Record<string, FollowUpAction>;
@@ -145,7 +143,7 @@ export function useHealthData(): HealthData {
   // Load guidance follow-up state (real source only).
   useEffect(() => {
     if (isMock) return;
-    void latestActions(CREW_ID).then(setActions).catch(() => setActions({}));
+    void latestActions().then(setActions).catch(() => setActions({}));
   }, [isMock, real.data]);
 
   const refresh = useCallback(async () => {
@@ -187,7 +185,7 @@ export function useHealthData(): HealthData {
         return;
       }
       await recordAction(CREW_ID, guidanceId, action);
-      setActions(await latestActions(CREW_ID));
+      setActions(await latestActions());
     },
     [isMock, mock],
   );
@@ -212,8 +210,6 @@ export function useHealthData(): HealthData {
     data: isMock ? mock.data : real.data,
     mission: isMock ? null : real.mission,
     refresh,
-    online: isMock ? mock.online : real.online,
-    queued: isMock ? mock.queued : real.queued,
     error: isMock ? null : real.error,
     isMock,
     guidanceActions: isMock ? mock.actions : actions,

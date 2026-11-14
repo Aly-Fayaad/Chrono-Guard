@@ -1,10 +1,12 @@
 """Check-in orchestration: validate, persist atomically, then analyse."""
 
+from __future__ import annotations
+
 import logging
 from datetime import datetime
 
-from sqlmodel import Session
-from sqlmodel import select
+from sqlalchemy import func
+from sqlmodel import Session, select
 
 from app.core.database import to_utc, utcnow
 from app.models.assessment import Assessment
@@ -36,8 +38,16 @@ _MEASUREMENT_FIELDS = (
 )
 
 
+def _submitted_source(payload: CheckInCreate) -> MeasurementSource:
+    """Map the API-only source enum onto the stored source enum."""
+    return MeasurementSource(payload.source.value)
+
+
 def _build_rows(
-    crew_id: str, payload: CheckInCreate, recorded_at: datetime
+    crew_id: str,
+    payload: CheckInCreate,
+    recorded_at: datetime,
+    source: MeasurementSource,
 ) -> tuple[list[HealthMeasurement], SleepRecord | None]:
     """Validate a payload and build unsaved measurement and sleep rows."""
     rows: list[HealthMeasurement] = []
@@ -56,17 +66,19 @@ def _build_rows(
                 value=float(value),
                 unit=unit_for(measurement_type),
                 recorded_at=recorded_at,
-                source=MeasurementSource.manual,
+                source=source,
                 quality=quality,
             )
         )
-    sleep_record = _build_sleep(crew_id, payload)
+    sleep_record = _build_sleep(crew_id, payload, source)
     if not rows and sleep_record is None:
         raise ValidationFailure("at least one health or sleep value is required")
     return rows, sleep_record
 
 
-def _build_sleep(crew_id: str, payload: CheckInCreate) -> SleepRecord | None:
+def _build_sleep(
+    crew_id: str, payload: CheckInCreate, source: MeasurementSource
+) -> SleepRecord | None:
     """Build and validate an optional sleep row."""
     if payload.sleep is None:
         return None
@@ -79,21 +91,34 @@ def _build_sleep(crew_id: str, payload: CheckInCreate) -> SleepRecord | None:
         sleep_end=end,
         duration_hours=duration,
         interruptions=payload.sleep.interruptions,
-        source=MeasurementSource.manual,
+        source=source,
         quality=quality,
     )
 
 
-def _run_engine(
-    engine: AnalysisEngine | None, session: Session, crew_id: str, checkin_id: str
+def run_analysis(
+    session: Session,
+    crew_id: str,
+    checkin_id: str | None,
+    engine: AnalysisEngine | None,
 ) -> Assessment | None:
-    """Run the analysis hook without risking the committed check-in."""
+    """Run the configured engine and persist its assessment safely.
+
+    This is the single persist-and-fail-safe path used by check-in submission
+    and by the explicit ``/analysis/run`` endpoint. The check-in has already
+    been committed before this function is called, so an engine failure only
+    rolls back the assessment attempt.
+    """
     if engine is None:
         return None
     try:
         assessment = engine.analyze(session, crew_id, checkin_id)
         if assessment is None:
             return None
+        if assessment.crew_id != crew_id:
+            raise ValueError(
+                "analysis engine returned an assessment for a different crew member"
+            )
         session.add(assessment)
         session.commit()
         return assessment
@@ -112,7 +137,8 @@ def create_checkin(
         validate_blood_pressure(
             payload.cardiovascular.systolic_bp, payload.cardiovascular.diastolic_bp
         )
-    rows, sleep_record = _build_rows(crew_id, payload, recorded_at)
+    source = _submitted_source(payload)
+    rows, sleep_record = _build_rows(crew_id, payload, recorded_at, source)
     checkin = CheckIn(crew_id=crew_id, submitted_at=utcnow(), notes=payload.notes)
     for row in rows:
         row.checkin_id = checkin.id
@@ -127,7 +153,7 @@ def create_checkin(
     except Exception:
         session.rollback()
         raise
-    assessment = _run_engine(engine, session, crew_id, checkin.id)
+    assessment = run_analysis(session, crew_id, checkin.id, engine)
     return checkin, rows, sleep_record, assessment
 
 
@@ -136,11 +162,22 @@ def list_checkins(session: Session, crew_id: str, limit: int, offset: int) -> li
     statement = (
         select(CheckIn)
         .where(CheckIn.crew_id == crew_id)
-        .order_by(CheckIn.submitted_at.desc())
+        .order_by(CheckIn.submitted_at.desc(), CheckIn.id.desc())
         .offset(offset)
         .limit(limit)
     )
     return list(session.exec(statement).all())
+
+
+def count_checkins(session: Session, crew_id: str) -> int:
+    """Return the total number of check-ins for a crew member."""
+    return int(
+        session.exec(
+            select(func.count())
+            .select_from(CheckIn)
+            .where(CheckIn.crew_id == crew_id)
+        ).one()
+    )
 
 
 def list_all_checkins(session: Session, crew_id: str) -> list[CheckIn]:
@@ -148,9 +185,19 @@ def list_all_checkins(session: Session, crew_id: str) -> list[CheckIn]:
     statement = (
         select(CheckIn)
         .where(CheckIn.crew_id == crew_id)
-        .order_by(CheckIn.submitted_at)
+        .order_by(CheckIn.submitted_at, CheckIn.id)
     )
     return list(session.exec(statement).all())
+
+
+def get_latest_checkin(session: Session, crew_id: str) -> CheckIn | None:
+    """Return the newest stored check-in for a crew member."""
+    return session.exec(
+        select(CheckIn)
+        .where(CheckIn.crew_id == crew_id)
+        .order_by(CheckIn.submitted_at.desc(), CheckIn.id.desc())
+        .limit(1)
+    ).first()
 
 
 def get_checkin_detail(

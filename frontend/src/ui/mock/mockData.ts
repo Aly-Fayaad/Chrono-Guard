@@ -62,7 +62,7 @@ function buildSeries(
   return values.map((value, i) => {
     const inRecent = i >= HISTORY[type].length;
     const quality: Quality =
-      invalidEveryOther && inRecent && i % 2 === 1 ? "suspect" : "valid";
+      invalidEveryOther && inRecent && i % 2 === 1 ? "questionable" : "valid";
     return {
       id: `mock-${type}-${i}`,
       crewId: "crew-demo-01",

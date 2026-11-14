@@ -8,7 +8,6 @@ import { useNow } from "../../hooks/useNow";
 import { MOOD, type Mood } from "../mood";
 import { Starfield } from "../Starfield";
 import { CelestialBody } from "../CelestialBody";
-import { OfflinePill } from "../../components/OfflinePill";
 import { MetClock } from "../../components/MetClock";
 import { HUB_BODIES, bodyTeasers, type HubBodyDef } from "./hubBodies";
 
@@ -136,7 +135,6 @@ export function HubPage() {
         </div>
         <div className="flex items-center gap-2">
           <MetClock />
-          <OfflinePill online={health.online} queued={health.queued} />
           <button
             type="button"
             onClick={() => setPref("reduceEffects", !prefs.reduceEffects)}

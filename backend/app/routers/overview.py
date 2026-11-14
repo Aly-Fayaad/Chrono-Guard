@@ -45,13 +45,13 @@ METRIC_ORDER: tuple[MetricKey, ...] = (
 
 _QUALITY = {
     QualityFlag.valid: "valid",
-    QualityFlag.questionable: "suspect",
-    QualityFlag.missing: "invalid",
+    QualityFlag.questionable: "questionable",
+    QualityFlag.missing: "missing",
 }
 _SOURCE = {
     MeasurementSource.manual: "manual",
     MeasurementSource.simulated: "simulated",
-    MeasurementSource.device_import: "device",
+    MeasurementSource.device_import: "device_import",
 }
 _MEASUREMENT_METRIC = {
     MeasurementType.heart_rate: "heart_rate",

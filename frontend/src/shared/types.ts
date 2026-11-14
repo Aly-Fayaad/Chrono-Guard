@@ -4,9 +4,9 @@ export type Kss = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9;
 
 export type Mood = 1 | 2 | 3 | 4 | 5;
 
-export type Quality = "valid" | "suspect" | "invalid";
+export type Quality = "valid" | "questionable" | "missing";
 
-export type MeasurementSource = "manual" | "simulated" | "device";
+export type MeasurementSource = "manual" | "simulated" | "device_import";
 
 export interface HealthMeasurement {
   id: string;

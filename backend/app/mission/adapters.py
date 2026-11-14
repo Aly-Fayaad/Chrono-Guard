@@ -273,9 +273,8 @@ def build_context(
     ``LookupError`` for an unknown crew and ``ValueError`` for an invalid or
     naive time window.
 
-    Limitation: ``get_upcoming_tasks`` returns tasks that *start* inside the
-    window, so a task that starts before ``window_start`` and overlaps into it
-    is not included. This is a documented consequence of the available helper.
+    Tasks are selected by interval overlap, so an activity already in progress
+    at ``window_start`` remains visible to safety and conflict rules.
     """
     start = _as_utc(window_start, "window_start")
     end = _as_utc(window_end, "window_end")

@@ -1,9 +1,7 @@
 import { useEffect, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sparkles, Eye } from "lucide-react";
-import { OfflinePill } from "../components/OfflinePill";
 import { MetClock } from "../components/MetClock";
-import { useHealth } from "../HealthContext";
 import { usePrefs } from "../prefs";
 import { usePageTitle } from "../usePageTitle";
 import { Starfield } from "./Starfield";
@@ -44,7 +42,7 @@ function ToggleButton({
 /**
  * Shell for all inner pages (everything reached from the Hub).
  * Low-intensity starfield, glass header with mini-orbit nav, breadcrumb,
- * MET clock, offline pill, global toggles, and a themed footer.
+ * MET clock, global toggles, and a themed footer.
  * Esc always returns to the Hub.
  */
 export function PageShell({
@@ -63,7 +61,6 @@ export function PageShell({
   maxW?: string;
 }) {
   usePageTitle(title);
-  const { online, queued } = useHealth();
   const { prefs, setPref } = usePrefs();
   const navigate = useNavigate();
 
@@ -99,7 +96,6 @@ export function PageShell({
           </nav>
           <div className="flex items-center gap-2">
             <MetClock />
-            <OfflinePill online={online} queued={queued} />
             <ToggleButton
               on={prefs.reduceEffects}
               onClick={() => setPref("reduceEffects", !prefs.reduceEffects)}

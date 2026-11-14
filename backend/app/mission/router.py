@@ -297,10 +297,8 @@ def get_schedule(
     the requested date's UTC midnight and lasts seven days; it is not forced to
     Monday.
 
-    Limitation inherited from ``get_upcoming_tasks``: only tasks that *start*
-    inside the window are loaded. A task that starts before the window and
-    overlaps into it is not returned, even though the local overlap filter would
-    accept it.
+    Tasks are loaded by interval overlap, so an activity that began before this
+    window but remains in progress is shown and evaluated.
     """
     selected_date = schedule_date or utcnow().date()
     if view is ScheduleView.daily:

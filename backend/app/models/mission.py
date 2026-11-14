@@ -17,7 +17,9 @@ class MissionTask(SQLModel, table=True):
     __table_args__ = (Index("ix_mission_crew_start", "crew_id", "start_time"),)
 
     id: str = Field(default_factory=new_id, primary_key=True)
-    crew_id: str = Field(foreign_key="crewprofile.id", nullable=False)
+    crew_id: str = Field(
+        foreign_key="crewprofile.id", ondelete="CASCADE", nullable=False
+    )
     title: str = Field(nullable=False)
     task_type: TaskType = Field(default=TaskType.other, sa_type=TASK_TYPE, nullable=False)
     start_time: datetime = Field(sa_type=UTCDateTime, nullable=False)
