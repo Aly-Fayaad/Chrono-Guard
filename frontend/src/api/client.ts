@@ -10,7 +10,7 @@ import type { DetectionStatus, FatigueStatus, MetricType } from "../shared/types
 
 /** Base URL of the backend API. Override with VITE_API_BASE_URL at build time. */
 export const API_BASE_URL: string =
-  (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ??
+  (import.meta.env.API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ??
   "http://127.0.0.1:8000/api/v1";
 
 const REQUEST_TIMEOUT_MS = 15_000;
