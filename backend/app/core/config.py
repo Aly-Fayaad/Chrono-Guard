@@ -13,7 +13,7 @@ class Settings(BaseSettings):
     """Runtime configuration loaded from environment variables or .env."""
 
     DATABASE_URL: str = "sqlite:///./chronoguard.db"
-    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://*.vercel.app"
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,https://chrono-guard-hazel.vercel.app/"
     ENV: str = "dev"
     ALLOWED_HOSTS: str = "localhost,127.0.0.1,testserver"
     ANALYSIS_ENGINE: str = "app.ml.crew_health_engine:CrewHealthEngine"
