@@ -1,8 +1,8 @@
-import { useCallback, useState } from "react";
-import { RotateCw } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { RotateCw, History, FlaskConical } from "lucide-react";
 import type { MetricType } from "../../shared/types";
 import { useHealth } from "../HealthContext";
-import { METRICS, METRIC_ORDER } from "../config";
+import { METRICS, METRIC_ORDER, CREW_ID } from "../config";
 import { metStamp } from "../lib/time";
 import { useNow } from "../hooks/useNow";
 import { DETECTION_BADGE } from "../components/StatusBadge";
@@ -17,6 +17,17 @@ import { PanelSkeleton, Skeleton } from "../components/Skeleton";
 import { PageShell } from "../shell/PageShell";
 import { MOOD } from "../shell/mood";
 import { EarthOrbitGauge } from "../components/EarthOrbitGauge";
+import { Panel } from "../components/Panel";
+import {
+  getDashboardSummary,
+  listCheckIns,
+  reanalyze,
+  listAssessments,
+  type DashboardSummary,
+  type ApiAssessment,
+  type ApiCheckInListItem,
+  type ReanalysisResult,
+} from "../../api/client";
 
 /**
  * Today — the operational dashboard, reached from the Hub's Earth body.
@@ -29,6 +40,76 @@ export function TodayPage() {
   const [metric, setMetric] = useState<MetricType>("heart_rate");
   const [demoError, setDemoError] = useState<string | null>(null);
   const now = useNow(30_000);
+
+  // Dashboard 7-day summary
+  const [dashSummary, setDashSummary] = useState<DashboardSummary | null>(null);
+  const [dashLoading, setDashLoading] = useState(false);
+
+  // Assessment history
+  const [assessHistory, setAssessHistory] = useState<ApiAssessment[]>([]);
+  const [assessLoading, setAssessLoading] = useState(false);
+  const [showAssessHistory, setShowAssessHistory] = useState(false);
+  const [reanalyzeResult, setReanalyzeResult] = useState<ReanalysisResult | null>(null);
+  const [reanalyzeLoading, setReanalyzeLoading] = useState(false);
+  const [reanalyzeError, setReanalyzeError] = useState<string | null>(null);
+
+  // Recent check-ins
+  const [recentCheckIns, setRecentCheckIns] = useState<ApiCheckInListItem[]>([]);
+  const [checkInsLoading, setCheckInsLoading] = useState(false);
+  const [showCheckIns, setShowCheckIns] = useState(false);
+
+  // Load supplementary data once real data is available
+  useEffect(() => {
+    if (isMock || !data) return;
+    setDashLoading(true);
+    void getDashboardSummary(CREW_ID)
+      .then(setDashSummary)
+      .catch(() => setDashSummary(null))
+      .finally(() => setDashLoading(false));
+  }, [isMock, data]);
+
+  const loadAssessHistory = useCallback(async () => {
+    if (isMock) return;
+    setAssessLoading(true);
+    try {
+      const page = await listAssessments(CREW_ID, 10, 0);
+      setAssessHistory(page.items);
+      setShowAssessHistory(true);
+    } catch {
+      /* silently ignore */
+    } finally {
+      setAssessLoading(false);
+    }
+  }, [isMock]);
+
+  const loadCheckIns = useCallback(async () => {
+    if (isMock) return;
+    setCheckInsLoading(true);
+    try {
+      const page = await listCheckIns(CREW_ID, 5, 0);
+      setRecentCheckIns(page.items);
+      setShowCheckIns(true);
+    } catch {
+      /* silently ignore */
+    } finally {
+      setCheckInsLoading(false);
+    }
+  }, [isMock]);
+
+  const triggerReanalyze = useCallback(async () => {
+    if (isMock) return;
+    setReanalyzeLoading(true);
+    setReanalyzeError(null);
+    try {
+      const result = await reanalyze(CREW_ID);
+      setReanalyzeResult(result);
+      await refresh();
+    } catch (cause) {
+      setReanalyzeError(cause instanceof Error ? cause.message : "Re-analysis failed.");
+    } finally {
+      setReanalyzeLoading(false);
+    }
+  }, [isMock, refresh]);
 
   const loadDemo = useCallback(async () => {
     setDemoError(null);
@@ -168,6 +249,125 @@ export function TodayPage() {
               <AnomalyHistory detections={data.detections} series={data.series} />
               <TaskStrip tasks={data.tasks} wake={health.wake} />
             </div>
+
+            {/* 7-day dashboard stats under metric tiles */}
+            {dashSummary && !dashLoading && (
+              <Panel label="7-day metric summary" actions={<span className="tnum text-[11px] text-regolith">Last {dashSummary.window_days} days</span>}>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  {dashSummary.measurements.map((m) => {
+                    const metricKey = (
+                      m.type === "body_temperature" ? "temperature" :
+                      m.type === "heart_rate" ? "heart_rate" :
+                      m.type === "hrv" ? "hrv" : m.type
+                    ) as MetricType;
+                    const displayLabel = METRICS[metricKey]?.label ?? m.type.replace(/_/g, " ");
+                    return (
+                      <div key={m.type} className="rounded-panel border border-hairline bg-panel p-3">
+                        <p className="label-eyebrow">{displayLabel}</p>
+                        <p className="tnum mt-1 text-[18px] font-medium text-moonlight">
+                          {m.mean_7d !== null ? m.mean_7d.toFixed(1) : "—"}
+                          <span className="ml-1 text-[11px] text-regolith">{m.unit}</span>
+                        </p>
+                        <p className="tnum mt-0.5 text-[11px] text-regolith">7-day mean · {m.valid_count_7d} reading{m.valid_count_7d !== 1 ? "s" : ""}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                {dashSummary.data_freshness_hours !== null && (
+                  <p className="mt-2 text-[11px] text-ink">
+                    Data freshness: {dashSummary.data_freshness_hours.toFixed(1)} h since last reading.
+                  </p>
+                )}
+              </Panel>
+            )}
+
+            {/* Assessment history + re-analyse */}
+            {!isMock && (
+              <Panel
+                label="Assessment history"
+                actions={
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => void triggerReanalyze()}
+                      disabled={reanalyzeLoading}
+                      className="motion-fade inline-flex min-h-[32px] items-center gap-1.5 rounded border border-earth/40 px-2.5 text-[11px] text-earth hover:bg-earth/10 disabled:opacity-40"
+                      title="Re-analyse all check-ins with the current engine"
+                    >
+                      <FlaskConical size={12} aria-hidden />
+                      {reanalyzeLoading ? "Running…" : "Re-analyse"}
+                    </button>
+                    <button
+                      onClick={() => showAssessHistory ? setShowAssessHistory(false) : void loadAssessHistory()}
+                      disabled={assessLoading}
+                      className="motion-fade inline-flex min-h-[32px] items-center gap-1.5 rounded border border-hairline px-2.5 text-[11px] text-regolith hover:text-moonlight disabled:opacity-40"
+                    >
+                      <History size={12} aria-hidden />
+                      {assessLoading ? "Loading…" : showAssessHistory ? "Hide" : "History"}
+                    </button>
+                  </div>
+                }
+              >
+                {reanalyzeResult && (
+                  <p className="mb-3 rounded border border-nominal/30 bg-nominal/5 px-3 py-2 text-[12px] text-nominal" role="status">
+                    Re-analysis complete — {reanalyzeResult.succeeded} succeeded, {reanalyzeResult.failed} failed out of {reanalyzeResult.processed} check-ins.
+                  </p>
+                )}
+                {reanalyzeError && (
+                  <p className="mb-3 text-[12px] text-watch" role="alert">{reanalyzeError}</p>
+                )}
+                {showAssessHistory && assessHistory.length > 0 && (
+                  <ul className="divide-y divide-hairline">
+                    {assessHistory.map((a) => (
+                      <li key={a.id} className="py-3">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-[13px] font-medium text-moonlight capitalize">{a.status.replace(/_/g, " ")}</p>
+                          <span className="tnum text-[11px] text-regolith">{metStamp(a.created_at)}</span>
+                        </div>
+                        <p className="mt-0.5 text-[12px] text-regolith">{a.summary}</p>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {showAssessHistory && assessHistory.length === 0 && (
+                  <p className="text-[12px] text-regolith">No assessment records found.</p>
+                )}
+                {!showAssessHistory && !reanalyzeResult && !reanalyzeError && (
+                  <p className="text-[12px] text-regolith">View past assessments or trigger a fresh analysis pass on stored check-ins.</p>
+                )}
+              </Panel>
+            )}
+
+            {/* Recent check-ins */}
+            {!isMock && (
+              <Panel
+                label="Recent check-ins"
+                actions={
+                  <button
+                    onClick={() => showCheckIns ? setShowCheckIns(false) : void loadCheckIns()}
+                    disabled={checkInsLoading}
+                    className="motion-fade inline-flex min-h-[32px] items-center gap-1.5 rounded border border-hairline px-2.5 text-[11px] text-regolith hover:text-moonlight disabled:opacity-40"
+                  >
+                    <History size={12} aria-hidden />
+                    {checkInsLoading ? "Loading…" : showCheckIns ? "Hide" : "Show"}
+                  </button>
+                }
+              >
+                {showCheckIns && recentCheckIns.length > 0 ? (
+                  <ul className="divide-y divide-hairline">
+                    {recentCheckIns.map((ci) => (
+                      <li key={ci.id} className="flex items-center justify-between py-2.5 text-[12px]">
+                        <span className="tnum text-moonlight">{metStamp(ci.submitted_at)}</span>
+                        {ci.notes && <span className="max-w-[60%] truncate text-regolith">{ci.notes}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                ) : showCheckIns ? (
+                  <p className="text-[12px] text-regolith">No check-ins recorded yet.</p>
+                ) : (
+                  <p className="text-[12px] text-regolith">Your 5 most recent check-in timestamps. Load to review.</p>
+                )}
+              </Panel>
+            )}
           </>
         )}
       </div>

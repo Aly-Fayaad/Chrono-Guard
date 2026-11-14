@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Plus, TriangleAlert } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Plus, TriangleAlert, Trash2, AlertTriangle, Lightbulb, ChevronDown, ChevronUp, RotateCw } from "lucide-react";
 import type { MissionTask } from "../../shared/types";
 import { useHealth } from "../HealthContext";
 import type { TaskInput } from "../hooks/useHealthData";
@@ -8,6 +8,13 @@ import { useNow } from "../hooks/useNow";
 import { Panel } from "../components/Panel";
 import { PageShell } from "../shell/PageShell";
 import { CircadianArcs } from "../components/CircadianArcs";
+import { CREW_ID } from "../config";
+import {
+  getMissionConflicts,
+  getMissionRecommendations,
+  deleteTask,
+  type JsonObject,
+} from "../../api/client";
 
 const WINDOW_H = 48;
 const WAKE_WARNING_H = 14;
@@ -27,6 +34,22 @@ function laneAssign(tasks: MissionTask[]): MissionTask[][] {
   return lanes;
 }
 
+// ----- Mission-intel types (subset of what the API returns) -----
+interface ConflictItem {
+  conflict_id: string;
+  rule_id: string;
+  severity: string;
+  message: string;
+  task_ids: string[];
+}
+
+interface RecommendationItem {
+  recommendation_id: string;
+  title: string;
+  rationale: string;
+  priority: string;
+}
+
 export function SchedulePage() {
   const health = useHealth();
   const { data, wake } = health;
@@ -34,6 +57,68 @@ export function SchedulePage() {
   const [form, setForm] = useState({ title: "", start: "", hours: "2", demand: "routine" as MissionTask["demand"] });
   const [formError, setFormError] = useState<string | null>(null);
   const [savedMsg, setSavedMsg] = useState(false);
+
+  // Mission-intel state
+  const [conflicts, setConflicts] = useState<ConflictItem[]>([]);
+  const [recommendations, setRecommendations] = useState<RecommendationItem[]>([]);
+  const [intelLoading, setIntelLoading] = useState(false);
+  const [intelError, setIntelError] = useState<string | null>(null);
+  const [showRecs, setShowRecs] = useState(false);
+
+  // Task delete state
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const loadIntel = useCallback(async () => {
+    setIntelLoading(true);
+    setIntelError(null);
+    try {
+      const [cRes, rRes] = await Promise.all([
+        getMissionConflicts(CREW_ID),
+        getMissionRecommendations(CREW_ID),
+      ]);
+      const cData = cRes as JsonObject;
+      const rData = rRes as JsonObject;
+      setConflicts((cData.conflicts as ConflictItem[] | undefined) ?? []);
+      setRecommendations((rData.recommendations as RecommendationItem[] | undefined) ?? []);
+    } catch (cause) {
+      setIntelError(cause instanceof Error ? cause.message : "Could not load mission intel.");
+    } finally {
+      setIntelLoading(false);
+    }
+  }, []);
+
+  // Reload conflicts/recommendations whenever task list changes
+  useEffect(() => {
+    void loadIntel();
+  }, [loadIntel, data?.tasks]);
+
+  const handleDelete = useCallback(
+    async (taskId: string) => {
+      setDeletingId(taskId);
+      setDeleteError(null);
+      try {
+        await deleteTask(CREW_ID, taskId);
+        await health.refresh();
+      } catch (cause) {
+        setDeleteError(cause instanceof Error ? cause.message : "Could not delete task.");
+      } finally {
+        setDeletingId(null);
+      }
+    },
+    [health],
+  );
+
+  // Map task IDs → conflict messages for quick lookup
+  const conflictByTask = useMemo(() => {
+    const map: Record<string, string[]> = {};
+    for (const c of conflicts) {
+      for (const tid of c.task_ids) {
+        (map[tid] ??= []).push(c.message);
+      }
+    }
+    return map;
+  }, [conflicts]);
 
   const windowStart = useMemo(() => missionDayStart(now), [now]);
 
@@ -74,7 +159,6 @@ export function SchedulePage() {
     setSavedMsg(true);
     window.setTimeout(() => setSavedMsg(false), 3000);
   };
-
   return (
     <PageShell title="Schedule" crumb="Sun" bodyName="Sun">
       <div className="space-y-4">
@@ -204,6 +288,75 @@ export function SchedulePage() {
           </div>
         </Panel>
 
+        {/* Mission conflicts */}
+        {conflicts.length > 0 && (
+          <Panel
+            label="Mission conflicts"
+            actions={
+              <button
+                onClick={() => void loadIntel()}
+                disabled={intelLoading}
+                className="motion-fade inline-flex items-center gap-1 text-[11px] text-regolith hover:text-moonlight disabled:opacity-40"
+                aria-label="Refresh mission intel"
+              >
+                <RotateCw size={12} aria-hidden />
+              </button>
+            }
+          >
+            <ul className="space-y-2">
+              {conflicts.map((c) => (
+                <li key={c.conflict_id} className="flex items-start gap-2 rounded border border-review/30 bg-review/5 p-3">
+                  <AlertTriangle size={14} aria-hidden className="mt-0.5 shrink-0 text-review" />
+                  <div>
+                    <p className="text-[12px] font-medium text-review">{c.rule_id.replace(/_/g, " ")}</p>
+                    <p className="mt-0.5 text-[12px] text-regolith">{c.message}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-[11px] text-ink">Advisory only. Consult the flight surgeon for schedule changes.</p>
+          </Panel>
+        )}
+
+        {/* Mission recommendations */}
+        {recommendations.length > 0 && (
+          <Panel
+            label={`Recommendations (${recommendations.length})`}
+            actions={
+              <button
+                onClick={() => setShowRecs((v) => !v)}
+                className="motion-fade inline-flex items-center gap-1 text-[11px] text-regolith hover:text-moonlight"
+                aria-expanded={showRecs}
+              >
+                {showRecs ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {showRecs ? "Hide" : "Show"}
+              </button>
+            }
+          >
+            {showRecs ? (
+              <ul className="space-y-2">
+                {recommendations.map((r) => (
+                  <li key={r.recommendation_id} className="flex items-start gap-2 rounded border border-earth/30 bg-earth/5 p-3">
+                    <Lightbulb size={14} aria-hidden className="mt-0.5 shrink-0 text-earth" />
+                    <div>
+                      <p className="text-[12px] font-medium text-moonlight">{r.title}</p>
+                      <p className="mt-0.5 text-[12px] text-regolith">{r.rationale}</p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-[12px] text-regolith">
+                {recommendations.length} advisory suggestion{recommendations.length !== 1 ? "s" : ""} available. Expand to review.
+              </p>
+            )}
+          </Panel>
+        )}
+
+        {intelError && (
+          <p className="text-[11px] text-watch" role="alert">{intelError}</p>
+        )}
+
         <Panel label="Add task">
           <form onSubmit={submit} noValidate className="grid grid-cols-1 gap-2 sm:grid-cols-[1fr_auto_auto_auto_auto]">
             <input
@@ -254,22 +407,37 @@ export function SchedulePage() {
         </Panel>
 
         <Panel label="Task list" bodyClassName="p-0">
+          {deleteError && (
+            <p className="border-b border-hairline px-5 py-2 text-[11px] text-watch" role="alert">{deleteError}</p>
+          )}
           <ul className="divide-y divide-hairline">
             {tasks.map((t) => {
               const demanding = t.demand === "demanding";
               const awakeH = wake ? hoursBetween(wake, t.startsAt) : null;
               const conflict = demanding && awakeH !== null && awakeH >= WAKE_WARNING_H;
+              const taskConflicts = conflictByTask[t.id] ?? [];
               return (
                 <li key={t.id} className="p-4 sm:px-5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <p className="text-[13px] font-medium text-moonlight">{t.title}</p>
-                    <span
-                      className={`rounded border px-2 py-0.5 font-mono text-[11px] ${
-                        demanding ? "border-review/45 text-review" : "border-hairline text-regolith"
-                      }`}
-                    >
-                      {demanding ? "DEMANDING" : "ROUTINE"}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded border px-2 py-0.5 font-mono text-[11px] ${
+                          demanding ? "border-review/45 text-review" : "border-hairline text-regolith"
+                        }`}
+                      >
+                        {demanding ? "DEMANDING" : "ROUTINE"}
+                      </span>
+                      <button
+                        onClick={() => void handleDelete(t.id)}
+                        disabled={deletingId === t.id}
+                        className="motion-fade inline-flex min-h-[32px] items-center justify-center rounded border border-hairline px-2 text-regolith hover:border-review/50 hover:text-review disabled:opacity-40"
+                        aria-label={`Delete task ${t.title}`}
+                        title="Delete task"
+                      >
+                        <Trash2 size={13} aria-hidden />
+                      </button>
+                    </div>
                   </div>
                   <p className="tnum mt-1 text-[12px] text-regolith">
                     {metStamp(t.startsAt)} → {metStamp(t.endsAt)}
@@ -280,6 +448,11 @@ export function SchedulePage() {
                       <TriangleAlert size={12} aria-hidden /> Long wake period before a demanding task.
                     </p>
                   )}
+                  {taskConflicts.map((msg, mi) => (
+                    <p key={mi} className="mt-1.5 flex items-center gap-1.5 text-[11px] text-review">
+                      <AlertTriangle size={12} aria-hidden /> {msg}
+                    </p>
+                  ))}
                 </li>
               );
             })}
