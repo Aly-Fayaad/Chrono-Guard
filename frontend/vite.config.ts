@@ -6,9 +6,9 @@ import tailwindcss from "@tailwindcss/vite";
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    allowedHosts: ["chrono-guard-2b4i.vercel.app"],
+    allowedHosts: ["chrono-guard-2b4i.vercel.run"],
   },
   preview: {
-    allowedHosts: ["chrono-guard-2b4i.vercel.app"],
+    allowedHosts: ["chrono-guard-2b4i.vercel.run"],
   },
 });
