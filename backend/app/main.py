@@ -39,8 +39,8 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        init_db(active_engine)
-        app.state.db_engine = active_engine
+        active_db_engine = init_db(active_engine)
+        app.state.db_engine = active_db_engine
         app.state.analysis_engine = load_engine(settings.ANALYSIS_ENGINE)
         yield
 
@@ -124,8 +124,9 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
     @app.get("/api/v1/health/ready", response_model=dict[str, str])
     def readiness() -> JSONResponse:
         """Readiness probe that verifies the database connection."""
+        curr_engine = getattr(app.state, "db_engine", None) or active_engine
         try:
-            with active_engine.connect() as connection:
+            with curr_engine.connect() as connection:
                 connection.execute(text("SELECT 1"))
         except Exception:  # noqa: BLE001 - report readiness, never crash the probe
             logger.exception("Database readiness check failed")
@@ -135,7 +136,12 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
             )
         return JSONResponse(
             status_code=200,
-            content={"status": "ok", "database": "ok", "env": settings.ENV},
+            content={
+                "status": "ok",
+                "database": "ok",
+                "dialect": curr_engine.dialect.name,
+                "env": settings.ENV,
+            },
         )
 
     return app
