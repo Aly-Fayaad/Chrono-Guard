@@ -508,7 +508,12 @@ Not yet covered as automated tests:
 ### 6.5 Before deployment
 
 - Set `ENV=prod` so `/api/v1/demo/seed` returns `403`.
-- Set `CORS_ORIGINS` to the deployed frontend origin.
+- Set `CORS_ORIGINS` to the deployed frontend origin(s), exactly as the browser
+  sends them (no trailing slash). Add `CORS_ORIGIN_REGEX` to allow ephemeral
+  preview domains such as Vercel previews.
+- `ALLOWED_HOSTS` defaults already cover `*.fastapicloud.dev` and the host in
+  FastAPI Cloud's `FASTAPI_PUBLIC_URL`. Set it explicitly only for a custom API
+  domain or to tighten the allow-list.
 - Set `DATABASE_URL` to the managed PostgreSQL instance and keep credentials in
   the host's secret manager; do not commit `backend/.env`.
 - Add Alembic (or a documented reset procedure) before making destructive table

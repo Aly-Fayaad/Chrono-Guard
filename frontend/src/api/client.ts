@@ -8,14 +8,33 @@
 
 import type { DetectionStatus, FatigueStatus, MetricType } from "../shared/types";
 
-/** Base URL of the backend API. Override with VITE_API_BASE_URL at build time. */
-export const API_BASE_URL: string =
-  (import.meta.env.API_BASE_URL as string | undefined)?.replace(/\/+$/, "") ??
-  "http://127.0.0.1:8000/api/v1";
+/**
+ * Base URL of the backend API, including the `/api/v1` prefix.
+ *
+ * Set `VITE_API_BASE_URL` in the build environment (Vercel → Settings →
+ * Environment Variables) to the public backend URL, e.g.
+ * `https://your-app.fastapicloud.dev/api/v1`. Vite only exposes variables
+ * prefixed with `VITE_`, so the unprefixed name would silently be `undefined`
+ * and the production bundle would keep pointing at localhost.
+ */
+export const API_BASE_URL: string = normalizeBaseUrl(
+  import.meta.env.VITE_API_BASE_URL as string | undefined,
+);
+
+function normalizeBaseUrl(value: string | undefined): string {
+  const trimmed = value?.trim().replace(/\/+$/, "");
+  if (!trimmed) return "http://127.0.0.1:8000/api/v1";
+  // Accept a host-only value (`https://api.example.com`) as well as the full
+  // API prefix (`https://api.example.com/api/v1`) so a small config mistake
+  // does not produce 404s on every request.
+  return /\/api\/v\d+$/i.test(trimmed) ? trimmed : `${trimmed}/api/v1`;
+}
 
 const REQUEST_TIMEOUT_MS = 15_000;
+/** Demo convenience: auto-provision the demo crew unless explicitly disabled. */
 const AUTO_PROVISION_CREW =
-  (import.meta.env.VITE_AUTO_PROVISION_CREW as string | undefined) === "true";
+  (import.meta.env.VITE_AUTO_PROVISION_CREW as string | undefined)?.toLowerCase() !==
+  "false";
 
 function requestId(): string {
   return typeof crypto.randomUUID === "function" ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;

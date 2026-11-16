@@ -42,6 +42,10 @@ npm run dev
 Open <http://127.0.0.1:5173>. The client reads the real backend API and creates the
 demo crew on first load when `VITE_AUTO_PROVISION_CREW=true` (the default).
 
+> Deploying? See [`DEPLOYMENT.md`](DEPLOYMENT.md) for the Vercel + FastAPI Cloud
+> environment variables (frontend API URL, CORS origins, allowed hosts) and the
+> production checklist.
+
 ## Checks
 
 ```powershell

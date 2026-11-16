@@ -32,6 +32,7 @@ from app.services.validation import ValidationFailure
 logger = logging.getLogger(__name__)
 
 
+
 def create_app(db_engine: Engine | None = None) -> FastAPI:
     """Build the application with CORS, schema startup, and all routers."""
     settings = get_settings()
@@ -50,9 +51,16 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
         description="Synthetic health check-ins, mission tasks, and read-only assessments.",
         lifespan=lifespan,
     )
+    # Middleware order matters: the last one added is the outermost wrapper.
+    # Register TrustedHost/GZip first so CORS wraps them and browser clients
+    # still receive CORS headers on a 400 "invalid host" response instead of an
+    # opaque "blocked by CORS policy" error.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
+    app.add_middleware(GZipMiddleware, minimum_size=1000)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins,
+        allow_origin_regex=settings.cors_origin_regex,
         # The API currently uses no browser cookies. Keeping credentials off
         # avoids needlessly broad cross-origin authority.
         allow_credentials=False,
@@ -60,8 +68,6 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
         allow_headers=["Accept", "Content-Type", "X-Request-ID"],
         expose_headers=["X-Total-Count", "X-Request-ID"],
     )
-    app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.allowed_hosts)
-    app.add_middleware(GZipMiddleware, minimum_size=1000)
 
     @app.middleware("http")
     async def add_request_id(request: Request, call_next):
@@ -113,6 +119,16 @@ def create_app(db_engine: Engine | None = None) -> FastAPI:
 
     for router in ROUTERS:
         app.include_router(router, prefix="/api/v1")
+
+    @app.get("/", include_in_schema=False)
+    def root() -> dict[str, str]:
+        """Friendly landing page so the deployed API URL is not a bare 404."""
+        return {
+            "service": "ChronoGuard API",
+            "version": app.version,
+            "health": "/health",
+            "docs": "/docs",
+        }
 
     @app.get("/health", response_model=dict[str, str])
     @app.get("/api/v1/health", response_model=dict[str, str])
